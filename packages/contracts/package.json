@@ -1,0 +1,36 @@
+{
+  "name": "@gymkartel/contracts",
+  "version": "0.1.0",
+  "description": "Shared contract between gymkartel-backend and gymkartel-app: Zod domain schemas, GraphQL SDL, and the single source of truth for pass/top-up pricing.",
+  "license": "UNLICENSED",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema.graphql": "./src/schema.graphql"
+  },
+  "files": [
+    "dist",
+    "src/schema.graphql"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}

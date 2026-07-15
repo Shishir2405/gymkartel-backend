@@ -1,0 +1,210 @@
+"""
+Gym Kartel GraphQL contract — the single wire boundary between backend and app.
+This file is the source of truth: the backend generates typed resolvers from it,
+the app runs GraphQL Code Generator against it for typed hooks. Breaking changes
+are gated by graphql-inspector in CI and a @gymkartel/contracts major bump.
+"""
+
+scalar DateTime
+
+enum Tier {
+  BASIC
+  STANDARD
+  PREMIUM
+}
+
+enum PassPack {
+  SINGLE_DAY
+  SEVEN_DAY
+  FIFTEEN_DAY
+  THIRTY_DAY
+}
+
+enum PassStatus {
+  ACTIVE
+  EXPIRED
+  EXHAUSTED
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED_BY_MEMBER
+  CANCELLED_BY_COACH
+}
+
+# ---- Core types -------------------------------------------------------------
+
+type Viewer {
+  id: ID!
+  name: String!
+  avatarUrl: String
+  tier: Tier!
+  zone: String!
+  role: UserRole!
+  activePass: Pass
+  streak: Streak!
+}
+
+enum UserRole {
+  MEMBER
+  COACH
+}
+
+type Pass {
+  id: ID!
+  tier: Tier!
+  pack: PassPack!
+  daysTotal: Int!
+  daysUsed: Int!
+  bonusDays: Int!
+  daysLeft: Int!
+  validUntil: DateTime!
+  status: PassStatus!
+}
+
+type Streak {
+  current: Int!
+  """Days remaining in the current 7-day window before the streak is at risk."""
+  windowDaysLeft: Int!
+  bonusDaysEarned: Int!
+}
+
+type Gym {
+  id: ID!
+  name: String!
+  tier: Tier!
+  zone: String!
+  address: String!
+  distanceMeters: Int
+  amenities: [String!]!
+  photoUrls: [String!]!
+  rating: Float
+  liveBusyFraction: Float
+}
+
+type CheckIn {
+  id: ID!
+  gym: Gym!
+  gymTier: Tier!
+  passTier: Tier!
+  scannedAt: DateTime!
+  dayNumber: Int!
+  topUpAmountPaise: Int
+}
+
+type Coach {
+  id: ID!
+  displayName: String!
+  verified: Boolean!
+  badge: String
+  bio: String!
+  specialties: [String!]!
+  pricePerSessionPaise: Int!
+  ratingAverage: Float
+  sessionsCompleted: Int!
+  transformationPhotoUrls: [String!]!
+}
+
+type Booking {
+  id: ID!
+  coach: Coach!
+  gym: Gym!
+  scheduledFor: DateTime!
+  pricePaise: Int!
+  status: BookingStatus!
+  insured: Boolean!
+  chatUnlocked: Boolean!
+}
+
+# ---- Pricing (mirrors @gymkartel/contracts pricing tables) ------------------
+
+type PassLadderRow {
+  pack: PassPack!
+  days: Int!
+  pricePaise: Int!
+  perDayPaise: Int!
+  badge: String
+  rankMultiplier: Int
+  emphasized: Boolean!
+}
+
+# ---- App version gate (Section 6) -------------------------------------------
+
+type VersionGate {
+  latestVersion: String!
+  minSupportedVersion: String!
+}
+
+# ---- Queries ----------------------------------------------------------------
+
+type Query {
+  viewer: Viewer
+  versionGate: VersionGate!
+  """Nearby gyms in the viewer's tier; peekOtherTiers surfaces the rest."""
+  gyms(zone: String, peekOtherTiers: Boolean = false): [Gym!]!
+  gym(id: ID!): Gym
+  """Pass ladder for the viewer's tier only — never all tiers at once (Flow 2)."""
+  passLadder: [PassLadderRow!]!
+  coaches(specialty: String, femaleOnly: Boolean, maxPricePaise: Int): [Coach!]!
+  coach(id: ID!): Coach
+  bookings: [Booking!]!
+  checkInHistory(limit: Int = 30): [CheckIn!]!
+}
+
+# ---- Mutations --------------------------------------------------------------
+
+input RequestOtpInput {
+  phone: String!
+}
+
+input VerifyOtpInput {
+  phone: String!
+  code: String!
+}
+
+type AuthTokens {
+  accessToken: String!
+  refreshToken: String!
+}
+
+input SyncCheckInInput {
+  gymCheckInCode: String!
+  scannedAt: DateTime!
+  idempotencyKey: String!
+  acceptedTopUp: Boolean = false
+}
+
+"""Result of a scan: either checked in, or a top-up is required first (Flow 4)."""
+type SyncCheckInResult {
+  checkIn: CheckIn
+  topUpRequired: TopUpRequired
+}
+
+type TopUpRequired {
+  gymTier: Tier!
+  amountPaise: Int!
+  razorpayOrderId: String!
+}
+
+input CreatePassOrderInput {
+  pack: PassPack!
+}
+
+type RazorpayOrder {
+  orderId: String!
+  amountPaise: Int!
+  currency: String!
+}
+
+type Mutation {
+  requestOtp(input: RequestOtpInput!): Boolean!
+  verifyOtp(input: VerifyOtpInput!): AuthTokens!
+  refreshSession(refreshToken: String!): AuthTokens!
+
+  """Sync one (possibly offline-queued) check-in. Idempotent on idempotencyKey."""
+  syncCheckIn(input: SyncCheckInInput!): SyncCheckInResult!
+
+  createPassOrder(input: CreatePassOrderInput!): RazorpayOrder!
+}

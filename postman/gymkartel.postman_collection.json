@@ -1,0 +1,663 @@
+{
+  "info": {
+    "_postman_id": "b3f6a1c2-9d4e-4f7a-8c21-gymkartel0001",
+    "name": "Gym Kartel Backend",
+    "description": "GraphQL Yoga API for Gym Kartel — an Indian multi-tier gym membership app (UPI payments via Razorpay).\n\nGraphQL endpoint: POST {{baseUrl}}/graphql\nRazorpay webhook: POST {{baseUrl}}/webhooks/razorpay\nHealth: GET {{baseUrl}}/health, GET {{baseUrl}}/ready\n\nAuth: obtain accessToken/refreshToken from Auth > verifyOtp (OTP login phone {{phone}}). The collection sends {{accessToken}} as a Bearer token by default. Import the 'Gym Kartel Local' environment first.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "phone",
+      "value": "+919876543210",
+      "type": "string"
+    },
+    {
+      "key": "razorpaySignature",
+      "value": "valid",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "requestOtp",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation RequestOtp($input: RequestOtpInput!) {\n  requestOtp(input: $input)\n}",
+                "variables": "{\n  \"input\": {\n    \"phone\": \"{{phone}}\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Request a one-time password for the given phone number. Returns Boolean!."
+          },
+          "response": []
+        },
+        {
+          "name": "verifyOtp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Save the access and refresh tokens for authenticated requests.",
+                  "let json;",
+                  "try {",
+                  "    json = pm.response.json();",
+                  "} catch (e) {",
+                  "    console.log('verifyOtp: response was not JSON');",
+                  "    json = null;",
+                  "}",
+                  "",
+                  "const tokens = json && json.data && json.data.verifyOtp;",
+                  "",
+                  "pm.test('verifyOtp returned tokens', function () {",
+                  "    pm.expect(tokens, 'data.verifyOtp missing').to.be.an('object');",
+                  "    pm.expect(tokens.accessToken, 'accessToken missing').to.be.a('string').and.not.empty;",
+                  "    pm.expect(tokens.refreshToken, 'refreshToken missing').to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "if (tokens && tokens.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', tokens.refreshToken);",
+                  "    if (pm.environment && pm.environment.name) {",
+                  "        pm.environment.set('accessToken', tokens.accessToken);",
+                  "        pm.environment.set('refreshToken', tokens.refreshToken);",
+                  "    }",
+                  "    console.log('Saved accessToken and refreshToken.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation VerifyOtp($input: VerifyOtpInput!) {\n  verifyOtp(input: $input) {\n    accessToken\n    refreshToken\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"phone\": \"{{phone}}\",\n    \"code\": \"123456\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Verify the OTP code and receive an AuthTokens { accessToken, refreshToken }. The test script stores both tokens into collection and environment variables."
+          },
+          "response": []
+        },
+        {
+          "name": "refreshSession",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let json;",
+                  "try {",
+                  "    json = pm.response.json();",
+                  "} catch (e) {",
+                  "    json = null;",
+                  "}",
+                  "const tokens = json && json.data && json.data.refreshSession;",
+                  "if (tokens && tokens.accessToken) {",
+                  "    pm.collectionVariables.set('accessToken', tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', tokens.refreshToken);",
+                  "    if (pm.environment && pm.environment.name) {",
+                  "        pm.environment.set('accessToken', tokens.accessToken);",
+                  "        pm.environment.set('refreshToken', tokens.refreshToken);",
+                  "    }",
+                  "    console.log('Refreshed and saved tokens.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation RefreshSession($refreshToken: String!) {\n  refreshSession(refreshToken: $refreshToken) {\n    accessToken\n    refreshToken\n  }\n}",
+                "variables": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Exchange a refresh token for a fresh AuthTokens pair. The test script updates the stored tokens."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Passes",
+      "item": [
+        {
+          "name": "passLadder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query PassLadder {\n  passLadder {\n    pack\n    days\n    pricePaise\n    perDayPaise\n    badge\n    rankMultiplier\n    emphasized\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Pass ladder for the viewer's tier only. Requires a valid Bearer accessToken."
+          },
+          "response": []
+        },
+        {
+          "name": "createPassOrder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation CreatePassOrder($input: CreatePassOrderInput!) {\n  createPassOrder(input: $input) {\n    orderId\n    amountPaise\n    currency\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"pack\": \"SEVEN_DAY\"\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Create a Razorpay order for the chosen PassPack (SINGLE_DAY, SEVEN_DAY, FIFTEEN_DAY, THIRTY_DAY). Returns RazorpayOrder { orderId, amountPaise, currency }."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Check-in",
+      "item": [
+        {
+          "name": "syncCheckIn",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "mutation SyncCheckIn($input: SyncCheckInInput!) {\n  syncCheckIn(input: $input) {\n    checkIn {\n      id\n      gymTier\n      passTier\n      scannedAt\n      dayNumber\n      topUpAmountPaise\n      gym {\n        id\n        name\n      }\n    }\n    topUpRequired {\n      gymTier\n      amountPaise\n      razorpayOrderId\n    }\n  }\n}",
+                "variables": "{\n  \"input\": {\n    \"gymCheckInCode\": \"GYM-DELHI-001\",\n    \"scannedAt\": \"2026-07-15T09:30:00.000Z\",\n    \"idempotencyKey\": \"checkin-2026-07-15-0001\",\n    \"acceptedTopUp\": false\n  }\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Sync one (possibly offline-queued) check-in. Idempotent on idempotencyKey. If the scanned gym is a higher tier than the pass, topUpRequired is returned; re-send with acceptedTopUp: true to complete."
+          },
+          "response": []
+        },
+        {
+          "name": "checkInHistory",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query CheckInHistory($limit: Int) {\n  checkInHistory(limit: $limit) {\n    id\n    gymTier\n    passTier\n    scannedAt\n    dayNumber\n    topUpAmountPaise\n    gym {\n      id\n      name\n      zone\n    }\n  }\n}",
+                "variables": "{\n  \"limit\": 30\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "List recent check-ins (default limit 30). Requires a valid Bearer accessToken."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Gyms",
+      "item": [
+        {
+          "name": "gyms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Gyms($zone: String, $peekOtherTiers: Boolean) {\n  gyms(zone: $zone, peekOtherTiers: $peekOtherTiers) {\n    id\n    name\n    tier\n    zone\n    address\n    distanceMeters\n    amenities\n    photoUrls\n    rating\n    liveBusyFraction\n  }\n}",
+                "variables": "{\n  \"zone\": \"South Delhi\",\n  \"peekOtherTiers\": false\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Nearby gyms in the viewer's tier; peekOtherTiers surfaces the rest."
+          },
+          "response": []
+        },
+        {
+          "name": "gym",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Gym($id: ID!) {\n  gym(id: $id) {\n    id\n    name\n    tier\n    zone\n    address\n    distanceMeters\n    amenities\n    photoUrls\n    rating\n    liveBusyFraction\n  }\n}",
+                "variables": "{\n  \"id\": \"gym_1\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Fetch a single gym by id."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Coaches",
+      "item": [
+        {
+          "name": "coaches",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Coaches($specialty: String, $femaleOnly: Boolean, $maxPricePaise: Int) {\n  coaches(specialty: $specialty, femaleOnly: $femaleOnly, maxPricePaise: $maxPricePaise) {\n    id\n    displayName\n    verified\n    badge\n    bio\n    specialties\n    pricePerSessionPaise\n    ratingAverage\n    sessionsCompleted\n    transformationPhotoUrls\n  }\n}",
+                "variables": "{\n  \"specialty\": \"Strength\",\n  \"femaleOnly\": false,\n  \"maxPricePaise\": 150000\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "List coaches, optionally filtered by specialty, femaleOnly, and maxPricePaise."
+          },
+          "response": []
+        },
+        {
+          "name": "coach",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Coach($id: ID!) {\n  coach(id: $id) {\n    id\n    displayName\n    verified\n    badge\n    bio\n    specialties\n    pricePerSessionPaise\n    ratingAverage\n    sessionsCompleted\n    transformationPhotoUrls\n  }\n}",
+                "variables": "{\n  \"id\": \"coach_1\"\n}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "Fetch a single coach by id."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "bookings",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Bookings {\n  bookings {\n    id\n    scheduledFor\n    pricePaise\n    status\n    insured\n    chatUnlocked\n    coach {\n      id\n      displayName\n    }\n    gym {\n      id\n      name\n    }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "List the viewer's coach bookings. Requires a valid Bearer accessToken."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Viewer & Meta",
+      "item": [
+        {
+          "name": "viewer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query Viewer {\n  viewer {\n    id\n    name\n    avatarUrl\n    tier\n    zone\n    role\n    activePass {\n      id\n      tier\n      pack\n      daysTotal\n      daysUsed\n      bonusDays\n      daysLeft\n      validUntil\n      status\n    }\n    streak {\n      current\n      windowDaysLeft\n      bonusDaysEarned\n    }\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "The authenticated viewer, active pass, and streak. Requires a valid Bearer accessToken."
+          },
+          "response": []
+        },
+        {
+          "name": "versionGate",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "graphql",
+              "graphql": {
+                "query": "query VersionGate {\n  versionGate {\n    latestVersion\n    minSupportedVersion\n  }\n}",
+                "variables": "{}"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/graphql",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "graphql"
+              ]
+            },
+            "description": "App version gate — latest and minimum supported versions. No auth required."
+          },
+          "response": []
+        },
+        {
+          "name": "health",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Liveness health check."
+          },
+          "response": []
+        },
+        {
+          "name": "ready",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ready"
+              ]
+            },
+            "description": "Readiness check."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Razorpay webhook simulation",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-razorpay-signature",
+                "value": "{{razorpaySignature}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              },
+              "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"pay_Mq1234567890AB\",\n        \"order_id\": \"order_Mq0987654321CD\",\n        \"amount\": 49900,\n        \"status\": \"captured\"\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/razorpay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "razorpay"
+              ]
+            },
+            "description": "Simulate a Razorpay payment.captured webhook. Raw JSON body; signature is sent in the x-razorpay-signature header ({{razorpaySignature}})."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
