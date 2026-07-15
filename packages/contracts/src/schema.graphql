@@ -105,6 +105,22 @@ type Coach {
   ratingAverage: Float
   sessionsCompleted: Int!
   transformationPhotoUrls: [String!]!
+  """Lowest tier this coach accepts bookings from."""
+  tierFloor: Tier
+  """Uploaded credentials + their verification status (coach profile editor)."""
+  certifications: [CoachCertification!]!
+}
+
+enum CertificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+type CoachCertification {
+  title: String!
+  issuer: String!
+  status: CertificationStatus!
 }
 
 type Booking {
@@ -137,6 +153,200 @@ type VersionGate {
   minSupportedVersion: String!
 }
 
+# ---- Chat (post-booking messaging; two-way PII masking) ---------------------
+
+type ChatMessage {
+  id: ID!
+  bookingId: ID!
+  from: ID!
+  """Phone/UPI/links are masked in BOTH directions before storage (product rule)."""
+  text: String!
+  masked: Boolean!
+  sentAt: DateTime!
+}
+
+"""One inbox row per booking whose chat has unlocked (post-booking only)."""
+type ChatThread {
+  bookingId: ID!
+  coach: Coach!
+  gym: Gym!
+  chatUnlocked: Boolean!
+  lastMessage: ChatMessage
+}
+
+type LocationShare {
+  expiresAt: DateTime!
+}
+
+# ---- Ledger (free-text workout log, Flow 6) ---------------------------------
+
+enum WorkoutKind {
+  STRENGTH
+  CARDIO
+  UNKNOWN
+}
+
+"""A parsed chip. `uncertain` renders an amber "?" — the parser never guesses."""
+type WorkoutChip {
+  kind: WorkoutKind!
+  exercise: String
+  sets: Int
+  reps: Int
+  weightKg: Float
+  distanceKm: Float
+  durationMin: Float
+  uncertain: Boolean!
+  note: String
+  raw: String!
+}
+
+type LedgerEntry {
+  id: ID!
+  chip: WorkoutChip!
+  isPR: Boolean!
+  loggedByCoach: Boolean!
+  loggedAt: DateTime!
+}
+
+# ---- Leaderboards (attendance-only, segmented, Flow 7) ----------------------
+
+enum LeaderboardSegment {
+  ZONE
+  STATE
+  INDIA
+}
+
+type LeaderboardEntry {
+  userId: ID!
+  displayName: String!
+  streak: Int!
+  totalCheckIns: Int!
+  position: Int!
+  isSelf: Boolean!
+}
+
+type Leaderboard {
+  segment: LeaderboardSegment!
+  scopeKey: String!
+  """IST month key (YYYY-MM) — the season boundary."""
+  season: String!
+  page: [LeaderboardEntry!]!
+  """Sticky self-row, present only when the viewer falls outside the page."""
+  self: LeaderboardEntry
+}
+
+# ---- Streaks & ranks (public thresholds) ------------------------------------
+
+type RankThreshold {
+  key: String!
+  label: String!
+  minWeeks: Int!
+}
+
+type RankCard {
+  current: String!
+  label: String!
+  next: String
+  weeksToNext: Int
+  streakWeeks: Int!
+  """Public ladder so a member sees exactly what the next rank needs."""
+  thresholds: [RankThreshold!]!
+}
+
+type StreakCalendar {
+  weeks: Int!
+  alive: Boolean!
+  daysThisWindow: Int!
+  windowDaysLeft: Int!
+  bonusDaysEarned: Int!
+  """Distinct check-in instants for the calendar heatmap."""
+  days: [DateTime!]!
+}
+
+# ---- Safety (SOS — plain, non-themed) ---------------------------------------
+
+enum SosKind {
+  CALL_EMERGENCY
+  ALERT_TRUSTED_CONTACT
+  REPORT_INCIDENT
+}
+
+enum IncidentStatus {
+  OPEN
+  ESCALATED
+  RESOLVED
+}
+
+type GeoPoint {
+  lat: Float!
+  lng: Float!
+}
+
+type TrustedContact {
+  name: String!
+  phone: String!
+}
+
+type Incident {
+  id: ID!
+  kind: SosKind!
+  note: String!
+  location: GeoPoint
+  status: IncidentStatus!
+  createdAt: DateTime!
+}
+
+# ---- Coach portal (role = COACH) --------------------------------------------
+
+type CoachDashboard {
+  todaysSessions: [Booking!]!
+  pendingRequests: [Booking!]!
+  ratingAverage: Float
+  sessionsCompleted: Int!
+  """Take-home earnings preview across confirmed bookings (T+2 payout)."""
+  earningsPaise: Int!
+}
+
+type CoachEarnings {
+  grossPaise: Int!
+  takeHomePaise: Int!
+  payoutSchedule: String!
+  estimatedTdsPaise: Int!
+}
+
+type CoachClient {
+  id: ID!
+  name: String!
+  avatarUrl: String
+  sessions: Int!
+}
+
+# ---- Notifications ----------------------------------------------------------
+
+enum NotificationKind {
+  GENERAL
+  BOOKING
+  STREAK
+  SAFETY
+  PASS
+}
+
+type AppNotification {
+  id: ID!
+  kind: NotificationKind!
+  title: String!
+  body: String!
+  read: Boolean!
+  createdAt: DateTime!
+}
+
+# ---- Feature flags ----------------------------------------------------------
+
+type FeatureFlag {
+  key: String!
+  enabled: Boolean!
+}
+
 # ---- Queries ----------------------------------------------------------------
 
 type Query {
@@ -151,6 +361,42 @@ type Query {
   coach(id: ID!): Coach
   bookings: [Booking!]!
   checkInHistory(limit: Int = 30): [CheckIn!]!
+
+  # chat
+  """Inbox: one thread per booking whose chat has unlocked."""
+  chatInbox: [ChatThread!]!
+  chatThread(bookingId: ID!): [ChatMessage!]!
+
+  # ledger
+  ledgerToday: [LedgerEntry!]!
+  ledgerHistory(exercise: String): [LedgerEntry!]!
+
+  # leaderboards
+  """scopeKey defaults from the viewer (zone/state); INDIA needs none."""
+  leaderboard(segment: LeaderboardSegment!, scopeKey: String, limit: Int): Leaderboard!
+
+  # streaks & ranks
+  rankCard: RankCard!
+  streakCalendar: StreakCalendar!
+
+  # safety
+  incidents: [Incident!]!
+  trustedContact: TrustedContact
+
+  # coach portal (role = COACH)
+  coachDashboard: CoachDashboard!
+  coachCalendar: [Booking!]!
+  coachClients: [CoachClient!]!
+  coachClient(id: ID!): CoachClient
+  coachEarnings: CoachEarnings!
+  """The signed-in coach's own profile (bio, specialties, cert status)."""
+  coachProfile: Coach!
+
+  # notifications
+  notifications: [AppNotification!]!
+
+  # feature flags
+  featureFlags: [FeatureFlag!]!
 }
 
 # ---- Mutations --------------------------------------------------------------
@@ -198,6 +444,22 @@ type RazorpayOrder {
   currency: String!
 }
 
+input GeoPointInput {
+  lat: Float!
+  lng: Float!
+}
+
+input TriggerSosInput {
+  kind: SosKind!
+  note: String
+  location: GeoPointInput
+}
+
+input SetTrustedContactInput {
+  name: String!
+  phone: String!
+}
+
 type Mutation {
   requestOtp(input: RequestOtpInput!): Boolean!
   verifyOtp(input: VerifyOtpInput!): AuthTokens!
@@ -207,4 +469,26 @@ type Mutation {
   syncCheckIn(input: SyncCheckInInput!): SyncCheckInResult!
 
   createPassOrder(input: CreatePassOrderInput!): RazorpayOrder!
+
+  # chat (unlocks only post-booking; text is PII-masked both directions)
+  sendMessage(bookingId: ID!, text: String!): ChatMessage!
+  shareLocation(bookingId: ID!, lat: Float!, lng: Float!): LocationShare!
+
+  # ledger
+  logWorkout(text: String!): [LedgerEntry!]!
+
+  # safety
+  triggerSos(input: TriggerSosInput!): Incident!
+  setTrustedContact(input: SetTrustedContactInput!): Boolean!
+
+  # notifications
+  markNotificationRead(id: ID!): Boolean!
+  registerPushToken(token: String!): Boolean!
+}
+
+# ---- Subscriptions ----------------------------------------------------------
+
+type Subscription {
+  """Live chat messages for a booking thread (PII already masked at send)."""
+  messageReceived(bookingId: ID!): ChatMessage!
 }

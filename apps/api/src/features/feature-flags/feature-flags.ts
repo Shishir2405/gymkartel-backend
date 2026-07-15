@@ -6,12 +6,19 @@ import type { DatabaseError } from "../../shared/errors/errors.js";
  * memory adapter is the reference). Reads are cache-first with a short TTL so a
  * flag flip propagates within seconds without hammering Mongo.
  */
+export interface FeatureFlagKey {
+  readonly key: string;
+  readonly enabled: boolean;
+}
+
 export interface FeatureFlagsApi {
   readonly isEnabled: (
     key: string,
     fallback?: boolean,
   ) => Effect.Effect<boolean, DatabaseError>;
   readonly set: (key: string, enabled: boolean) => Effect.Effect<void, DatabaseError>;
+  /** Every known flag and its current state — feeds the viewer's flag query. */
+  readonly all: () => Effect.Effect<FeatureFlagKey[], DatabaseError>;
 }
 
 export class FeatureFlags extends Context.Tag("features/FeatureFlags")<
@@ -31,5 +38,9 @@ export const FeatureFlagsMemory = (
         Effect.sync(() => {
           flags.set(key, enabled);
         }),
+      all: () =>
+        Effect.sync(() =>
+          [...flags.entries()].map(([key, enabled]) => ({ key, enabled })),
+        ),
     };
   });

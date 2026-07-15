@@ -1,6 +1,13 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
 import { randomUUID } from "node:crypto";
 import { createYoga } from "graphql-yoga";
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/lib/use/ws";
 import { buildSchema } from "./schema.js";
 import { resolveViewer, type GraphQLContext } from "./context.js";
 import { handleRazorpayWebhook } from "./webhook.js";
@@ -28,10 +35,61 @@ export const buildYoga = () =>
     },
   });
 
+/**
+ * Attach a graphql-ws WebSocket transport at the GraphQL endpoint so live
+ * subscriptions (e.g. chat `messageReceived`) work over WS in addition to
+ * Yoga's default SSE. Uses the canonical graphql-yoga ⇄ graphql-ws bridge:
+ * every WS operation is executed through the SAME envelop pipeline (schema,
+ * validation, context) as HTTP, so auth and resolvers behave identically.
+ */
+const attachSubscriptions = (
+  httpServer: Server,
+  yoga: ReturnType<typeof buildYoga>,
+): void => {
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: yoga.graphqlEndpoint,
+  });
+
+  useServer(
+    {
+      // rootValue carries the envelop-bound execute/subscribe — see onSubscribe.
+      // TODO(graphql-ws): rootValue plumbing is loosely typed by the canonical
+      // graphql-yoga bridge; args shape is validated at runtime by envelop.
+      execute: (args: any) => args.rootValue.execute(args),
+      // TODO(graphql-ws): same loosely-typed bridge as execute above.
+      subscribe: (args: any) => args.rootValue.subscribe(args),
+      onSubscribe: async (ctx, msg) => {
+        const { schema, execute, subscribe, contextFactory, parse, validate } =
+          yoga.getEnveloped({
+            ...ctx,
+            req: ctx.extra.request,
+            socket: ctx.extra.socket,
+            params: msg.payload,
+          });
+
+        const args = {
+          schema,
+          operationName: msg.payload.operationName,
+          document: parse(msg.payload.query),
+          variableValues: msg.payload.variables,
+          contextValue: await contextFactory(),
+          rootValue: { execute, subscribe },
+        };
+
+        const errors = validate(args.schema, args.document);
+        if (errors.length) return errors;
+        return args;
+      },
+    },
+    wsServer,
+  );
+};
+
 export const createApiServer = () => {
   const yoga = buildYoga();
 
-  return createServer((req: IncomingMessage, res: ServerResponse) => {
+  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const requestId = randomUUID();
     void runWithRequestContext({ requestId }, async () => {
       try {
@@ -65,4 +123,7 @@ export const createApiServer = () => {
       }
     });
   });
+
+  attachSubscriptions(httpServer, yoga);
+  return httpServer;
 };

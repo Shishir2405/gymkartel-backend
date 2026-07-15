@@ -31,8 +31,37 @@ import { BookingRepoMemory } from "../features/bookings/infrastructure/in-memory
 import { BookingsServiceLive } from "../features/bookings/application/bookings-service.js";
 import { StreaksServiceLive } from "../features/streaks-ranks/application/streaks-service.js";
 import { VersionGateServiceLive } from "../features/version-gate/application/version-gate-service.js";
+import {
+  ChatServiceLive,
+  ChatRepoMemory,
+} from "../features/chat/application/chat-service.js";
+import {
+  LedgerServiceLive,
+  LedgerRepoMemory,
+} from "../features/ledger/application/ledger-service.js";
+import {
+  LeaderboardServiceLive,
+  LeaderboardRepoMemorySeeded,
+} from "../features/leaderboards/application/leaderboard-service.js";
+import {
+  SafetyServiceLive,
+  IncidentRepoMemory,
+  IncidentEscalatorMemory,
+} from "../features/safety/application/safety-service.js";
+import { CoachPortalServiceLive } from "../features/coach-portal/application/coach-portal-service.js";
+import { NotificationInboxMemory } from "../features/notifications/application/inbox.js";
+import { FeatureFlagsMemory } from "../features/feature-flags/feature-flags.js";
 
-import { seedCoaches, seedGyms, seedPasses, seedUsers } from "./fixtures.js";
+import {
+  seedCoaches,
+  seedGyms,
+  seedPasses,
+  seedUsers,
+  seedBookings,
+  seedLeaderboardRows,
+  seedNotifications,
+  seedFeatureFlags,
+} from "./fixtures.js";
 
 /**
  * Composition root. Wires every feature's application service against the
@@ -58,7 +87,14 @@ const infra = Layer.mergeAll(
   CheckInRepoMemory(),
   CheckInEventsMemory(),
   CoachRepoMemory(seedCoaches),
-  BookingRepoMemory(),
+  BookingRepoMemory(seedBookings),
+  ChatRepoMemory,
+  LedgerRepoMemory,
+  LeaderboardRepoMemorySeeded(seedLeaderboardRows),
+  IncidentRepoMemory,
+  IncidentEscalatorMemory,
+  NotificationInboxMemory(seedNotifications),
+  FeatureFlagsMemory(seedFeatureFlags),
 ).pipe(Layer.provideMerge(ConfigLive));
 
 // Tier 1: services that depend only on infra.
@@ -66,8 +102,24 @@ const tokens = TokenServiceLive.pipe(Layer.provide(infra));
 const payments = PaymentsServiceLive.pipe(Layer.provide(infra));
 const coaches = CoachesServiceLive.pipe(Layer.provide(infra));
 const versionGate = VersionGateServiceLive.pipe(Layer.provide(infra));
+const chat = ChatServiceLive.pipe(Layer.provide(infra));
+const ledger = LedgerServiceLive.pipe(Layer.provide(infra));
+const leaderboard = LeaderboardServiceLive.pipe(Layer.provide(infra));
+const safety = SafetyServiceLive.pipe(Layer.provide(infra));
+const coachPortal = CoachPortalServiceLive.pipe(Layer.provide(infra));
 
-const tier1 = Layer.mergeAll(infra, tokens, payments, coaches, versionGate);
+const tier1 = Layer.mergeAll(
+  infra,
+  tokens,
+  payments,
+  coaches,
+  versionGate,
+  chat,
+  ledger,
+  leaderboard,
+  safety,
+  coachPortal,
+);
 
 // Tier 2: services that also depend on tier-1 services (payments/tokens).
 const passes = PassesServiceLive.pipe(Layer.provide(tier1));

@@ -76,12 +76,18 @@ export const LeaderboardServiceLive = Layer.effect(
   }),
 );
 
-export const LeaderboardRepoMemory: Layer.Layer<LeaderboardRepo> = Layer.sync(
-  LeaderboardRepo,
-  () => {
-    const rows = new Map<string, StoredLeaderboardRow>();
-    const key = (r: Pick<StoredLeaderboardRow, "segment" | "scopeKey" | "season" | "userId">) =>
-      `${r.segment}:${r.scopeKey}:${r.season}:${r.userId}`;
+const key = (
+  r: Pick<StoredLeaderboardRow, "segment" | "scopeKey" | "season" | "userId">,
+) => `${r.segment}:${r.scopeKey}:${r.season}:${r.userId}`;
+
+/** Factory variant that pre-seeds rows (used by the infra-free runtime). */
+export const LeaderboardRepoMemorySeeded = (
+  seed: readonly StoredLeaderboardRow[] = [],
+): Layer.Layer<LeaderboardRepo> =>
+  Layer.sync(LeaderboardRepo, () => {
+    const rows = new Map<string, StoredLeaderboardRow>(
+      seed.map((r) => [key(r), r] as const),
+    );
     return {
       upsert: (row) =>
         Effect.sync(() => {
@@ -90,9 +96,12 @@ export const LeaderboardRepoMemory: Layer.Layer<LeaderboardRepo> = Layer.sync(
       rows: (segment, scopeKey, season) =>
         Effect.sync(() =>
           [...rows.values()].filter(
-            (r) => r.segment === segment && r.scopeKey === scopeKey && r.season === season,
+            (r) =>
+              r.segment === segment && r.scopeKey === scopeKey && r.season === season,
           ),
         ),
     };
-  },
-);
+  });
+
+export const LeaderboardRepoMemory: Layer.Layer<LeaderboardRepo> =
+  LeaderboardRepoMemorySeeded();

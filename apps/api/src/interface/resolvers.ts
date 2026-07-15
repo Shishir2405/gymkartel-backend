@@ -1,5 +1,4 @@
 import { Effect } from "effect";
-import { createGraphQLError } from "graphql-yoga";
 import type {
   Booking,
   CheckIn,
@@ -20,17 +19,16 @@ import { StreaksService } from "../features/streaks-ranks/application/streaks-se
 import { VersionGateService } from "../features/version-gate/application/version-gate-service.js";
 import { UserRepo } from "../features/onboarding/application/user-repo.js";
 import { daysLeft } from "../features/passes/domain/pass-rules.js";
-import { runResolver, type GraphQLContext, type Viewer } from "./context.js";
-
-/** Guard: throw an UNAUTHENTICATED GraphQL error when no viewer is present. */
-const requireViewer = (ctx: GraphQLContext): Viewer => {
-  if (!ctx.viewer) {
-    throw createGraphQLError("Sign in to continue", {
-      extensions: { code: "UNAUTHENTICATED", status: 401 },
-    });
-  }
-  return ctx.viewer;
-};
+import { runResolver, type GraphQLContext } from "./context.js";
+import { requireViewer } from "./guards.js";
+import { chatResolvers } from "./chat-resolvers.js";
+import { leaderboardResolvers } from "./leaderboard-resolvers.js";
+import { ledgerResolvers } from "./ledger-resolvers.js";
+import { streakResolvers } from "./streak-resolvers.js";
+import { safetyResolvers } from "./safety-resolvers.js";
+import { coachPortalResolvers } from "./coach-portal-resolvers.js";
+import { notificationResolvers } from "./notification-resolvers.js";
+import { featureFlagResolvers } from "./feature-flag-resolvers.js";
 
 /** Resolve the viewer's tier (used by tier-scoped queries). Defaults BASIC. */
 const viewerTier = (ctx: GraphQLContext): Effect.Effect<Tier, never, UserRepo> => {
@@ -53,7 +51,7 @@ const annotateHistory = (rows: readonly CheckIn[]): AnnotatedCheckIn[] => {
   return rows.map((c) => ({ ...c, __dayNumber: numbers.get(c.id) ?? 0 }));
 };
 
-export const resolvers = {
+const coreResolvers = {
   Query: {
     viewer: (_p: unknown, _a: unknown, ctx: GraphQLContext): Promise<User | null> => {
       const v = ctx.viewer;
@@ -311,3 +309,33 @@ export const resolvers = {
       ),
   },
 };
+
+/**
+ * Merge the per-feature resolver modules into the single executable map that
+ * `schema.ts` binds against. Each module contributes its own Query/Mutation/
+ * Subscription fields (and, for the core module, the object type resolvers);
+ * we shallow-merge per GraphQL type so a field is never silently dropped.
+ */
+type ResolverMap = Record<string, Record<string, unknown>>;
+
+const mergeResolvers = (...maps: readonly ResolverMap[]): ResolverMap => {
+  const out: ResolverMap = {};
+  for (const map of maps) {
+    for (const [typeName, fields] of Object.entries(map)) {
+      out[typeName] = { ...(out[typeName] ?? {}), ...fields };
+    }
+  }
+  return out;
+};
+
+export const resolvers = mergeResolvers(
+  coreResolvers as ResolverMap,
+  chatResolvers as ResolverMap,
+  leaderboardResolvers as ResolverMap,
+  ledgerResolvers as ResolverMap,
+  streakResolvers as ResolverMap,
+  safetyResolvers as ResolverMap,
+  coachPortalResolvers as ResolverMap,
+  notificationResolvers as ResolverMap,
+  featureFlagResolvers as ResolverMap,
+);
