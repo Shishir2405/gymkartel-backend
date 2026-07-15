@@ -3,6 +3,7 @@ import {
   CheckInSyncInput,
   type CheckIn,
   type CheckInId,
+  type GymId,
   type Paise,
   type UserId,
 } from "@gymkartel/contracts";
@@ -26,10 +27,21 @@ import {
   GymNotFound,
   NoActivePass,
   PassExpired,
+  TopUpNotRequired,
   TopUpPaymentPending,
   TopUpRequired,
 } from "../domain/errors.js";
 import { CheckInEvents, CheckInRepo } from "./ports.js";
+import type { CreatedOrder } from "../../payments/application/ports.js";
+
+/** Errors surfaced when opening UPI checkout for a tier top-up (Flow 4). */
+export type TopUpOrderError =
+  | GymNotFound
+  | NoActivePass
+  | PassExpired
+  | TopUpNotRequired
+  | DatabaseError
+  | ExternalServiceError;
 
 export type SyncError =
   | ValidationError
@@ -53,6 +65,22 @@ export interface CheckInServiceApi {
     userId: UserId,
     rawInput: unknown,
   ) => Effect.Effect<CheckIn, SyncError>;
+
+  /**
+   * Create (or reuse) the Razorpay order for the top-up delta when the given gym
+   * (by id or check-in code) is above the viewer's pass tier, WITHOUT recording a
+   * check-in. Reuses the exact order-creation path `syncCheckIn` uses (purpose
+   * TOP_UP, ref `{ gymId, key: idempotencyKey }`) so the app can open UPI
+   * checkout up-front and the later scan collapses onto the same order.
+   */
+  readonly createTopUpOrder: (
+    userId: UserId,
+    input: {
+      readonly gymId?: string;
+      readonly gymCheckInCode?: string;
+      readonly idempotencyKey: string;
+    },
+  ) => Effect.Effect<CreatedOrder, TopUpOrderError>;
 
   readonly history: (
     userId: UserId,
@@ -222,6 +250,55 @@ export const CheckInServiceLive = Layer.effect(
             );
 
           return inserted;
+        }),
+
+      createTopUpOrder: (userId, input) =>
+        Effect.gen(function* () {
+          // Resolve the gym from either scanner entry point (id or QR code).
+          const gym = yield* (input.gymId
+            ? gyms.getById(input.gymId as GymId)
+            : gyms.getByCheckInCode(input.gymCheckInCode ?? ""));
+          if (!gym) {
+            return yield* Effect.fail(
+              new GymNotFound({
+                checkInCode: input.gymCheckInCode ?? input.gymId ?? "",
+              }),
+            );
+          }
+
+          // Require a usable pass — same gate the scan uses.
+          const pass = yield* passes.activeForUser(userId);
+          if (!pass) return yield* Effect.fail(new NoActivePass({ userId }));
+          const now = yield* clock.now;
+          const status = deriveStatus(pass, now);
+          if (status === "EXPIRED") {
+            return yield* Effect.fail(new PassExpired({ passId: pass.id }));
+          }
+          if (status === "EXHAUSTED") {
+            return yield* Effect.fail(new NoActivePass({ userId }));
+          }
+
+          // Same pure decision as the scan; pricing stays sourced from contracts.
+          const decision = resolveScan({
+            passTier: pass.tier,
+            gymTier: gym.tier,
+            acceptedTopUp: false,
+            topUpPaid: false,
+          });
+          if (decision.kind === "FREE") {
+            return yield* Effect.fail(
+              new TopUpNotRequired({ passTier: pass.tier, gymTier: gym.tier }),
+            );
+          }
+
+          // Reuse the scan's order ref so the eventual syncCheckIn (same
+          // idempotencyKey) collapses onto this order — no duplicate charge.
+          return yield* payments.createOrder({
+            purpose: "TOP_UP",
+            userId,
+            amountPaise: decision.amountPaise,
+            ref: { gymId: gym.id, key: input.idempotencyKey },
+          });
         }),
 
       history: (userId, limit) => checkIns.recentForUser(userId, limit),

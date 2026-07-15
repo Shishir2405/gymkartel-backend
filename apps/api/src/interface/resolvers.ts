@@ -3,7 +3,9 @@ import type {
   Booking,
   CheckIn,
   Coach,
+  CoachId,
   Gym,
+  GymId,
   Pass,
   Tier,
   User,
@@ -214,6 +216,77 @@ const coreResolvers = {
     },
 
     /**
+     * Open UPI checkout for a tier top-up before the scan is confirmed (Flow 4).
+     * Reuses the scan's order path, so paying here then syncing with the same
+     * idempotencyKey collapses onto one Razorpay order.
+     */
+    createTopUpOrder: (
+      _p: unknown,
+      args: {
+        input: {
+          gymId?: string | null;
+          gymCheckInCode?: string | null;
+          idempotencyKey: string;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const viewer = requireViewer(ctx);
+      return runResolver(
+        ctx.runtime,
+        CheckInService.pipe(
+          Effect.flatMap((s) =>
+            s.createTopUpOrder(viewer.id, {
+              ...(args.input.gymId ? { gymId: args.input.gymId } : {}),
+              ...(args.input.gymCheckInCode
+                ? { gymCheckInCode: args.input.gymCheckInCode }
+                : {}),
+              idempotencyKey: args.input.idempotencyKey,
+            }),
+          ),
+          Effect.map((order) => ({
+            orderId: order.orderId,
+            amountPaise: order.amountPaise,
+            currency: order.currency,
+          })),
+        ),
+      );
+    },
+
+    /**
+     * Reserve a coach slot + create its Razorpay order (review & pay, Flow 5).
+     * Priced at the coach's pricePerSession by the bookings service — no new
+     * pricing path is invented here.
+     */
+    createBookingOrder: (
+      _p: unknown,
+      args: {
+        input: { coachId: string; gymId: string; scheduledFor: string };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const viewer = requireViewer(ctx);
+      return runResolver(
+        ctx.runtime,
+        BookingsService.pipe(
+          Effect.flatMap((s) =>
+            s.createBookingOrder({
+              memberId: viewer.id,
+              coachId: args.input.coachId as CoachId,
+              gymId: args.input.gymId as GymId,
+              scheduledFor: args.input.scheduledFor,
+            }),
+          ),
+          Effect.map((order) => ({
+            orderId: order.orderId,
+            amountPaise: order.amountPaise,
+            currency: order.currency,
+          })),
+        ),
+      );
+    },
+
+    /**
      * Never a wall: a TopUpRequired domain error is caught here and returned in
      * the `topUpRequired` branch of the result (not raised as a GraphQL error).
      */
@@ -277,6 +350,11 @@ const coreResolvers = {
 
   Gym: {
     distanceMeters: () => null,
+    /** Map the stored GeoJSON point (coordinates: [lng, lat]) to { lat, lng }. */
+    location: (g: Gym) => {
+      const [lng, lat] = g.location.coordinates;
+      return { lat, lng };
+    },
   },
 
   Coach: {

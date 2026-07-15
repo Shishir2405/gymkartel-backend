@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { buildYoga } from "../server.js";
 import { appRuntime } from "../../runtime/runtime.js";
 import { TokenService } from "../../shared/auth/tokens.js";
-import type { UserId } from "@gymkartel/contracts";
+import { topUpCost, type UserId } from "@gymkartel/contracts";
 
 const yoga = buildYoga();
 
@@ -109,6 +109,75 @@ describe("GraphQL resolvers (interface, via Yoga fetch)", () => {
     };
     expect(out.syncCheckIn.checkIn).toBeNull();
     expect(out.syncCheckIn.topUpRequired?.amountPaise).toBe(5900);
+  });
+
+  it("gym.location maps stored GeoJSON [lng, lat] to { lat, lng }", async () => {
+    const r = await query(`{ gym(id: "gym_iron") { location { lat lng } } }`);
+    expect(r.errors).toBeUndefined();
+    const gym = (r.data as { gym: { location: { lat: number; lng: number } } }).gym;
+    // Seed gym_iron: coordinates [77.6229, 12.9352] (GeoJSON lng-first).
+    expect(gym.location.lat).toBe(12.9352);
+    expect(gym.location.lng).toBe(77.6229);
+  });
+
+  it("createTopUpOrder returns a RazorpayOrder for the topUpCost delta", async () => {
+    // Demo member is STANDARD; GYM-ELITE-002 is PREMIUM → single source of truth.
+    const expected = topUpCost("STANDARD", "PREMIUM");
+    const r = await query(
+      `mutation { createTopUpOrder(input: { gymCheckInCode: "GYM-ELITE-002", idempotencyKey: "iface-topup-order-key" }) { orderId amountPaise currency } }`,
+      demoToken,
+    );
+    expect(r.errors).toBeUndefined();
+    const order = (
+      r.data as {
+        createTopUpOrder: { orderId: string; amountPaise: number; currency: string };
+      }
+    ).createTopUpOrder;
+    expect(order.amountPaise).toBe(expected);
+    expect(order.amountPaise).toBe(5900);
+    expect(order.orderId).toBeTruthy();
+    expect(order.currency).toBe("INR");
+
+    // Idempotent: same idempotencyKey (by gym id) reuses the same order.
+    const again = await query(
+      `mutation { createTopUpOrder(input: { gymId: "gym_elite", idempotencyKey: "iface-topup-order-key" }) { orderId } }`,
+      demoToken,
+    );
+    expect(
+      (again.data as { createTopUpOrder: { orderId: string } }).createTopUpOrder
+        .orderId,
+    ).toBe(order.orderId);
+  });
+
+  it("createTopUpOrder rejects a same-or-lower tier gym (no delta due)", async () => {
+    const r = await query(
+      `mutation { createTopUpOrder(input: { gymCheckInCode: "GYM-IRON-001", idempotencyKey: "iface-topup-noop-key" }) { orderId } }`,
+      demoToken,
+    );
+    expect(
+      (r.errors?.[0] as { extensions?: { code?: string } })?.extensions?.code,
+    ).toBe("TOP_UP_NOT_REQUIRED");
+  });
+
+  it("createBookingOrder returns a RazorpayOrder priced at the coach's pricePerSession", async () => {
+    const r = await query(
+      `mutation { createBookingOrder(input: { coachId: "coach_neha", gymId: "gym_iron", scheduledFor: "2026-08-01T10:00:00.000Z" }) { orderId amountPaise currency } }`,
+      demoToken,
+    );
+    expect(r.errors).toBeUndefined();
+    const order = (
+      r.data as {
+        createBookingOrder: {
+          orderId: string;
+          amountPaise: number;
+          currency: string;
+        };
+      }
+    ).createBookingOrder;
+    // Seed coach_neha.pricePerSession = 80000 paise (₹800) — no invented pricing.
+    expect(order.amountPaise).toBe(80000);
+    expect(order.orderId).toBeTruthy();
+    expect(order.currency).toBe("INR");
   });
 
   it("chat: sendMessage masks PII both directions and never returns raw text", async () => {

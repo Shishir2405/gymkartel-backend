@@ -82,6 +82,8 @@ type Gym {
   photoUrls: [String!]!
   rating: Float
   liveBusyFraction: Float
+  """Map marker coordinates, mapped from the gym's stored GeoJSON point."""
+  location: GeoPoint
 }
 
 type CheckIn {
@@ -438,6 +440,28 @@ input CreatePassOrderInput {
   pack: PassPack!
 }
 
+"""
+Create the Razorpay order for the tier top-up delta BEFORE confirming a scan
+(Flow 4). Identify the gym by id (map/detail entry) or by scanned check-in code
+(scanner entry). Reuses the same order the scan would create, keyed on
+`idempotencyKey`, so paying here and later confirming the scan stay idempotent.
+"""
+input CreateTopUpOrderInput {
+  gymId: ID
+  gymCheckInCode: String
+  idempotencyKey: String!
+}
+
+"""
+Review-and-pay for a coach session (Flow 5): reserves the slot and creates the
+Razorpay order priced at the coach's pricePerSession.
+"""
+input CreateBookingOrderInput {
+  coachId: ID!
+  gymId: ID!
+  scheduledFor: DateTime!
+}
+
 type RazorpayOrder {
   orderId: String!
   amountPaise: Int!
@@ -469,6 +493,12 @@ type Mutation {
   syncCheckIn(input: SyncCheckInInput!): SyncCheckInResult!
 
   createPassOrder(input: CreatePassOrderInput!): RazorpayOrder!
+
+  """Open UPI checkout for a tier top-up before confirming the scan (Flow 4)."""
+  createTopUpOrder(input: CreateTopUpOrderInput!): RazorpayOrder!
+
+  """Reserve a coach slot + create its Razorpay order (review & pay, Flow 5)."""
+  createBookingOrder(input: CreateBookingOrderInput!): RazorpayOrder!
 
   # chat (unlocks only post-booking; text is PII-masked both directions)
   sendMessage(bookingId: ID!, text: String!): ChatMessage!

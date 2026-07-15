@@ -83,6 +83,7 @@ export const ERROR_CODES: Record<string, { code: string; status: number }> = {
   DuplicateCheckIn: { code: "DUPLICATE_CHECKIN", status: 200 },
   GymNotFound: { code: "GYM_NOT_FOUND", status: 404 },
   TopUpPaymentPending: { code: "TOP_UP_PAYMENT_PENDING", status: 402 },
+  TopUpNotRequired: { code: "TOP_UP_NOT_REQUIRED", status: 409 },
 
   // passes / payments
   PassNotFound: { code: "PASS_NOT_FOUND", status: 404 },

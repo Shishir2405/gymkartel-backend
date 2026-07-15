@@ -36,3 +36,13 @@ export class TopUpRequired extends Data.TaggedError("TopUpRequired")<{
 export class TopUpPaymentPending extends Data.TaggedError("TopUpPaymentPending")<{
   readonly razorpayOrderId: string;
 }> {}
+
+/**
+ * The gym is at or below the pass tier, so no top-up delta is due — asking for a
+ * top-up order here is a no-op the app should never reach (it only opens UPI
+ * checkout when a scan surfaced `topUpRequired`).
+ */
+export class TopUpNotRequired extends Data.TaggedError("TopUpNotRequired")<{
+  readonly passTier: Tier;
+  readonly gymTier: Tier;
+}> {}
