@@ -7,6 +7,8 @@ import {
   DLX,
   assertQueueTopology,
   attemptCount,
+  buildShareCardData,
+  makeR2ShareCardUploader,
   type RoutingKey,
 } from "@gymkartel/api/workers";
 import { retryDecision, backoffMs } from "./retry.js";
@@ -19,6 +21,7 @@ import {
   payoutBatch,
   incidentEscalation,
   type HandlerDeps,
+  type ShareCardDeps,
 } from "./handlers.js";
 
 const log = pino({ level: process.env.LOG_LEVEL ?? "info" });
@@ -38,6 +41,23 @@ const deps: HandlerDeps = {
   // Production wires this to the Mongo check-in repo; standalone it is empty.
   loadCheckInInstants: async () => [],
   now: () => new Date(),
+};
+
+/**
+ * Share-card consumer deps. `loadCardData` resolves the marketing fields from
+ * the check-in history (production wires the gym name from the Mongo gym repo);
+ * `upload` renders to the dedicated share-card bucket via the R2 adapter.
+ */
+const shareCardDeps: ShareCardDeps = {
+  log: deps.log,
+  loadCardData: async (evt) =>
+    buildShareCardData({
+      // TODO(gym-name): resolve the human gym name from the gym repo in prod.
+      gymName: evt.gymId,
+      checkInInstants: await deps.loadCheckInInstants(evt.userId),
+      now: deps.now(),
+    }),
+  upload: makeR2ShareCardUploader(),
 };
 
 const registerConsumer = async (
@@ -94,7 +114,7 @@ const main = async (): Promise<void> => {
 
   await registerConsumer(ch, ROUTING.checkinRecorded, streakRecompute(deps));
   // Rank recompute shares the checkin.recorded stream on its own queue binding.
-  await registerConsumer(ch, ROUTING.shareCardRender, shareCardRender(deps));
+  await registerConsumer(ch, ROUTING.shareCardRender, shareCardRender(shareCardDeps));
   await registerConsumer(ch, ROUTING.notificationDispatch, notificationDispatch(deps));
   await registerConsumer(ch, ROUTING.payoutBatch, payoutBatch(deps));
   await registerConsumer(ch, ROUTING.incidentEscalation, incidentEscalation(deps));

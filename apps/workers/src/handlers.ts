@@ -3,8 +3,11 @@ import { z } from "zod";
 import {
   computeStreak,
   rankForWeeks,
+  renderShareCard,
   ROUTING,
   type RoutingKey,
+  type ShareCardData,
+  type ShareCardUploader,
 } from "@gymkartel/api/workers";
 
 /**
@@ -48,6 +51,28 @@ export interface HandlerDeps {
 }
 
 /**
+ * Deps for the share-card consumer. Kept separate from `HandlerDeps` so the
+ * render/upload infrastructure (satori pipeline + R2 uploader) is only wired
+ * where it is needed. `loadCardData` resolves the marketing fields (gym name,
+ * streak, rank) for a check-in; `upload` persists the PNG and returns a signed
+ * URL (idempotent per check-in id).
+ */
+export interface ShareCardDeps {
+  readonly log: (msg: string, meta?: Record<string, unknown>) => void;
+  readonly loadCardData: (evt: CheckinRecordedEvent) => Promise<ShareCardData>;
+  readonly upload: ShareCardUploader;
+}
+
+type CheckinRecordedEvent = z.infer<typeof CheckinRecorded>;
+
+export class RenderFailed extends Error {
+  constructor(readonly detail: unknown) {
+    super("share-card render/upload failed");
+    this.name = "RenderFailed";
+  }
+}
+
+/**
  * Streak recompute worker — reacts to `checkin.recorded`. Recomputes the streak
  * from the full history and (in production) grants earned bonus days. Pure
  * domain (`computeStreak`) means this is deterministic and unit-tested.
@@ -74,10 +99,25 @@ export const rankRecompute = (deps: HandlerDeps) => (raw: unknown) =>
     deps.log("rank recomputed", { userId: evt.userId, rank: rank.current });
   });
 
-export const shareCardRender = (deps: HandlerDeps) => (raw: unknown) =>
+/**
+ * Share-card render worker — reacts to `checkin.recorded`. Resolves the card's
+ * marketing data, renders the 1080×1920 PNG (pure satori + resvg pipeline), and
+ * uploads it to object storage keyed by the check-in id (idempotent overwrite).
+ * A render/upload failure is a typed `RenderFailed` → the consumer nacks it into
+ * the shared DLX + retry-with-backoff flow, exactly like every other handler.
+ */
+export const shareCardRender = (deps: ShareCardDeps) => (raw: unknown) =>
   Effect.gen(function* () {
     const evt = yield* parse(CheckinRecorded, raw);
-    deps.log("share-card render enqueued", { checkInId: evt.checkInId });
+    const url = yield* Effect.tryPromise({
+      try: async () => {
+        const data = await deps.loadCardData(evt);
+        const png = await renderShareCard(data);
+        return deps.upload(evt.checkInId, png);
+      },
+      catch: (cause) => new RenderFailed(cause),
+    });
+    deps.log("share-card rendered", { checkInId: evt.checkInId, url });
   });
 
 export const notificationDispatch = (deps: HandlerDeps) => (raw: unknown) =>

@@ -26,6 +26,20 @@ export { rankForWeeks, RANKS, type RankKey } from "./features/streaks-ranks/doma
 export { istDayNumber, istSeasonKey } from "./features/streaks-ranks/domain/ist.js";
 export { buildView, rankAll, type LeaderboardEntry } from "./features/leaderboards/domain/ranking.js";
 
+export {
+  renderShareCard,
+  TOKENS as SHARE_CARD_TOKENS,
+  CARD_WIDTH,
+  CARD_HEIGHT,
+  type ShareCardData,
+} from "./features/share-cards/domain/render.js";
+export { buildShareCardData, formatCardDate } from "./features/share-cards/domain/card-data.js";
+export {
+  makeR2ShareCardUploader,
+  shareCardKey,
+  type ShareCardUploader,
+} from "./features/share-cards/application/share-card-storage.js";
+
 export type { CheckinRecordedEvent } from "./features/check-in/application/ports.js";
 export {
   TEMPLATE,

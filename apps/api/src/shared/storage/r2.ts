@@ -20,6 +20,16 @@ export interface ObjectStorageApi {
     key: string,
     expiresInSeconds?: number,
   ) => Effect.Effect<string, ExternalServiceError>;
+  /**
+   * Server-side upload of bytes we already hold (e.g. a worker-rendered share
+   * card). Overwrites the same key, so callers keying by a stable id (check-in
+   * id) get idempotent re-renders rather than duplicates.
+   */
+  readonly putObject: (
+    key: string,
+    body: Uint8Array,
+    contentType: string,
+  ) => Effect.Effect<void, ExternalServiceError>;
 }
 
 export class ObjectStorage extends Context.Tag("shared/ObjectStorage")<
@@ -71,6 +81,19 @@ export const ObjectStorageR2: Layer.Layer<ObjectStorage, never, Config> = Layer.
             ),
           catch: (cause) => new ExternalServiceError({ service: "r2:get", cause }),
         }),
+      putObject: (key, body, contentType) =>
+        Effect.tryPromise({
+          try: () =>
+            client.send(
+              new PutObjectCommand({
+                Bucket: config.r2Bucket,
+                Key: key,
+                Body: body,
+                ContentType: contentType,
+              }),
+            ),
+          catch: (cause) => new ExternalServiceError({ service: "r2:putObject", cause }),
+        }).pipe(Effect.asVoid),
     };
   }),
 );

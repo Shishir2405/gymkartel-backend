@@ -70,15 +70,32 @@ called-out `checkIns {userId:1,gymId:1,scannedAt:-1}` and
 ## Integration tests
 
 Adapter unit tests (Zod boundary / mapping) run in the default suite with a
-faked driver. Tests that need a **live** Mongo/Redis/Rabbit are gated behind
-`INTEGRATION=1` and skipped otherwise, so the default `pnpm -r test` never
-depends on containers:
+faked driver. The **integration tier** exercises the critical money/heartbeat
+paths against a real MongoDB and is gated behind `INTEGRATION`, so the default
+`pnpm -r test` never starts a container (the whole `describe` block — container
+start, hooks, and all tests — is skipped).
+
+The integration suite is **Testcontainers-managed**: it starts its own
+single-node Mongo replica set per run, applies the code-defined indexes, and
+tears it down afterwards. You need a running **Docker daemon**, but NOT
+`docker compose` and NOT any external Mongo / `MONGO_URI`:
 
 ```bash
-docker compose up -d
-INTEGRATION=1 MONGO_URI="mongodb://localhost:27017/?replicaSet=rs0" \
-  pnpm --filter @gymkartel/api test
+# Docker daemon must be running; that is the only prerequisite.
+INTEGRATION=1 pnpm --filter @gymkartel/api test
 ```
+
+`apps/api/src/features/__tests__/critical-paths.integration.test.ts` covers:
+
+- **check-in idempotency + offline replay** — a duplicate `idempotencyKey`
+  (including two concurrent replays) collapses to exactly one stored check-in,
+  enforced by the unique `uniq_idempotency` index.
+- **pass purchase + Razorpay webhook reconciliation** — a captured webhook
+  activates exactly one pass, and a webhook replay reconciles to `NOOP` so it
+  never double-activates.
+- **Mongo adapter round-trip** — a valid pass inserts + reads back through the
+  adapter's Zod boundary, a malformed stored document maps to a tagged
+  `DatabaseError` instead of leaking, and the called-out indexes are present.
 
 ## Terraform (`main.tf`) — SKELETON
 

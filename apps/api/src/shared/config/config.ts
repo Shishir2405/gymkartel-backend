@@ -47,6 +47,8 @@ export const AppConfigSchema = z.object({
   r2AccessKeyId: z.string().default(""),
   r2SecretAccessKey: z.string().default(""),
   r2Bucket: z.string().default("gymkartel-assets"),
+  /** Dedicated bucket for worker-rendered check-in share cards. */
+  r2ShareCardBucket: z.string().default("gymkartel-share-cards"),
   r2PublicBaseUrl: z.string().default("https://assets.gymkartel.example"),
   /**
    * Optional S3 endpoint override. Empty in production (the R2 adapter derives
@@ -68,7 +70,8 @@ export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 export class Config extends Context.Tag("shared/Config")<Config, AppConfig>() {}
 
-const fromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
+/** Parse + validate an env bag into typed config (the Zod trust boundary). */
+export const configFromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
   AppConfigSchema.parse({
     nodeEnv: env.NODE_ENV,
     apiPort: env.API_PORT,
@@ -96,6 +99,7 @@ const fromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
     r2AccessKeyId: env.R2_ACCESS_KEY_ID,
     r2SecretAccessKey: env.R2_SECRET_ACCESS_KEY,
     r2Bucket: env.R2_BUCKET,
+    r2ShareCardBucket: env.R2_SHARE_CARD_BUCKET,
     r2PublicBaseUrl: env.R2_PUBLIC_BASE_URL,
     s3Endpoint: env.S3_ENDPOINT,
     s3ForcePathStyle: env.S3_FORCE_PATH_STYLE,
@@ -109,7 +113,7 @@ const fromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
 /** Reads and validates process.env. Fails fast if required secrets are absent. */
 export const ConfigLive = Layer.effect(
   Config,
-  Effect.sync(() => fromEnv(process.env)),
+  Effect.sync(() => configFromEnv(process.env)),
 );
 
 /** Deterministic config for tests. Override fields as needed. */
