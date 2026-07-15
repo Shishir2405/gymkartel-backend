@@ -31,9 +31,16 @@ export const ObjectStorageR2: Layer.Layer<ObjectStorage, never, Config> = Layer.
   ObjectStorage,
   Effect.gen(function* () {
     const config = yield* Config;
+    // Local MinIO (docker-compose) sets S3_ENDPOINT + path-style; production
+    // leaves them empty and the Cloudflare R2 endpoint is derived instead.
+    const endpoint =
+      config.s3Endpoint !== ""
+        ? config.s3Endpoint
+        : `https://${config.r2AccountId}.r2.cloudflarestorage.com`;
     const client = new S3Client({
       region: "auto",
-      endpoint: `https://${config.r2AccountId}.r2.cloudflarestorage.com`,
+      endpoint,
+      forcePathStyle: config.s3ForcePathStyle,
       credentials: {
         accessKeyId: config.r2AccessKeyId,
         secretAccessKey: config.r2SecretAccessKey,

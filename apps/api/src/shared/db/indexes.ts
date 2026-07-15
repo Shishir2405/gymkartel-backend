@@ -39,7 +39,27 @@ export const COLLECTION_INDEXES: Record<string, IndexDescription[]> = {
   leaderboardEntries: [
     // Called out in the brief — the hot leaderboard read path.
     { key: { zone: 1, season: 1, streak: -1 }, name: "zone_season_streak" },
-    { key: { userId: 1, season: 1 }, unique: true, name: "uniq_user_season" },
+    // The row model stores segment + scopeKey (zone/state/"INDIA"), so the
+    // actual read + upsert keys index those. One row per member per segment per
+    // monthly season.
+    { key: { segment: 1, scopeKey: 1, season: 1, streak: -1 }, name: "segment_scope_season_streak" },
+    {
+      key: { segment: 1, scopeKey: 1, season: 1, userId: 1 },
+      unique: true,
+      name: "uniq_segment_scope_season_user",
+    },
   ],
   featureFlags: [{ key: { key: 1 }, unique: true, name: "uniq_flag" }],
+  chatMessages: [
+    // History reads: all messages for a booking in send order.
+    { key: { bookingId: 1, sentAt: 1 }, name: "booking_sentAt" },
+  ],
+  ledgerEntries: [
+    { key: { userId: 1, loggedAt: -1 }, name: "user_loggedAt" },
+    // PR lookups: best strength weight for a user + exercise.
+    { key: { userId: 1, "entry.kind": 1, "entry.exercise": 1 }, name: "user_exercise" },
+  ],
+  incidents: [{ key: { userId: 1, createdAt: -1 }, name: "user_createdAt" }],
+  notifications: [{ key: { userId: 1, createdAt: -1 }, name: "user_createdAt" }],
+  pushTokens: [{ key: { userId: 1, token: 1 }, unique: true, name: "uniq_user_token" }],
 };

@@ -13,6 +13,15 @@ export const AppConfigSchema = z.object({
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("info"),
 
+  /**
+   * Selects the infrastructure stack wired at the composition root:
+   *   - "memory" (default): infra-free in-memory adapters. Used by every test
+   *     and by `pnpm dev` so the API boots without Docker.
+   *   - "mongo": the driver-backed stack (MongoDB repos + Redis + RabbitMQ +
+   *     live Razorpay gateway). Requires `docker compose up -d`.
+   */
+  persistence: z.enum(["memory", "mongo"]).default("memory"),
+
   jwtAccessSecret: z.string().min(1),
   jwtRefreshSecret: z.string().min(1),
   jwtAccessTtlSeconds: z.coerce.number().int().positive().default(900),
@@ -39,6 +48,13 @@ export const AppConfigSchema = z.object({
   r2SecretAccessKey: z.string().default(""),
   r2Bucket: z.string().default("gymkartel-assets"),
   r2PublicBaseUrl: z.string().default("https://assets.gymkartel.example"),
+  /**
+   * Optional S3 endpoint override. Empty in production (the R2 adapter derives
+   * the Cloudflare endpoint from the account id); set to the local MinIO URL
+   * (http://localhost:9000) from docker-compose for local object storage.
+   */
+  s3Endpoint: z.string().default(""),
+  s3ForcePathStyle: z.coerce.boolean().default(false),
 
   sentryDsn: z.string().optional(),
   otelEndpoint: z.string().optional(),
@@ -58,6 +74,7 @@ const fromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
     apiPort: env.API_PORT,
     workersHealthPort: env.WORKERS_HEALTH_PORT,
     logLevel: env.LOG_LEVEL,
+    persistence: env.PERSISTENCE,
     jwtAccessSecret: env.JWT_ACCESS_SECRET ?? "dev-access-secret",
     jwtRefreshSecret: env.JWT_REFRESH_SECRET ?? "dev-refresh-secret",
     jwtAccessTtlSeconds: env.JWT_ACCESS_TTL_SECONDS,
@@ -80,6 +97,8 @@ const fromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
     r2SecretAccessKey: env.R2_SECRET_ACCESS_KEY,
     r2Bucket: env.R2_BUCKET,
     r2PublicBaseUrl: env.R2_PUBLIC_BASE_URL,
+    s3Endpoint: env.S3_ENDPOINT,
+    s3ForcePathStyle: env.S3_FORCE_PATH_STYLE,
     sentryDsn: env.SENTRY_DSN,
     otelEndpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
     otelServiceName: env.OTEL_SERVICE_NAME,

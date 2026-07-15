@@ -1,0 +1,120 @@
+# Local development infrastructure for gymkartel-backend.
+#
+# Brings up every backing service the API + workers expect, so the in-memory
+# adapters can be swapped for real driver layers locally. Bring up with:
+#   docker compose up -d
+# then point apps/api/.env at these (see .env.example values below).
+#
+# NOTE: MongoDB is configured as a single-node REPLICA SET on purpose — the
+# app uses change streams (leaderboard hot-cache, live-busy meter) and those
+# require a replica set even for a single node. The `mongo-init` one-shot
+# initiates the RS the first time the volume is empty.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: gymkartel-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Healthy only once the RS reports a PRIMARY.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # One-shot: guarantees the replica set is initiated before the app connects.
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongosh --host mongo:27017 --quiet --eval '
+          try {
+            rs.status();
+            print("replica set already initiated");
+          } catch (e) {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] });
+            print("replica set initiated");
+          }
+        '
+
+  redis:
+    image: redis:7-alpine
+    container_name: gymkartel-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: gymkartel-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # management UI (guest/guest)
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # S3-compatible object storage — local stand-in for Cloudflare R2 / AWS S3
+  # (share-card renders, coach certs, transformation photos — signed URLs only).
+  minio:
+    image: minio/minio:latest
+    container_name: gymkartel-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: gymkartel
+      MINIO_ROOT_PASSWORD: gymkartel-local-secret
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # Creates the buckets the storage adapter expects, then exits.
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 gymkartel gymkartel-local-secret &&
+        mc mb --ignore-existing local/gymkartel-share-cards &&
+        mc mb --ignore-existing local/gymkartel-coach-docs &&
+        mc mb --ignore-existing local/gymkartel-transformations &&
+        echo "buckets ready"
+
+volumes:
+  mongo-data:
+  redis-data:
+  rabbitmq-data:
+  minio-data:
