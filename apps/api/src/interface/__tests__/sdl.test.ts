@@ -7,7 +7,6 @@ describe("GraphQL SDL contract", () => {
     expect(sdl).toContain("type Query");
     expect(sdl).toContain("syncCheckIn");
     expect(sdl).toContain("passLadder");
-    // Snapshot the whole wire contract so an accidental drift is caught in CI.
     expect(sdl).toMatchSnapshot();
   });
 });

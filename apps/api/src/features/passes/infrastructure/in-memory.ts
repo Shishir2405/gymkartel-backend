@@ -15,8 +15,6 @@ export const PassRepoMemory = (seed: readonly Pass[] = []): Layer.Layer<PassRepo
           rows.sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt));
           return rows[0] ?? null;
         }),
-      // Status-only: the window/expiry check is the service's job (injected
-      // clock), so time-travel tests and rollovers stay deterministic.
       activeForUser: (userId) =>
         col.find((p) => p.userId === userId && p.status === "ACTIVE" && daysLeft(p) > 0),
       insert: (pass) => col.insert(pass),

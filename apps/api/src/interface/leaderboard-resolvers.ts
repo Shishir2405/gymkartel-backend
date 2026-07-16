@@ -9,11 +9,6 @@ import { istSeasonKey } from "../features/streaks-ranks/domain/ist.js";
 import { runResolver, type GraphQLContext } from "./context.js";
 import { requireViewer } from "./guards.js";
 
-/**
- * Leaderboards. Ranking is attendance-only (streak, then check-ins) — the
- * service enforces that; the resolver only picks the scopeKey (defaulting to the
- * viewer's zone/state) and stamps the current IST season onto the result.
- */
 export const leaderboardResolvers = {
   Query: {
     leaderboard: (

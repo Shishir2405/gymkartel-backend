@@ -1,7 +1,3 @@
-/**
- * Public rank ladder (Flow 7). Thresholds are on consecutive streak-weeks and
- * are intentionally public so members can see exactly what the next rank needs.
- */
 export const RANKS = [
   { key: "ROOKIE", label: "Rookie", minWeeks: 0 },
   { key: "REGULAR", label: "Regular", minWeeks: 2 },

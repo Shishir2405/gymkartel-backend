@@ -5,11 +5,6 @@ import { Config } from "../../../shared/config/config.js";
 import { RateLimitedError } from "../../../shared/errors/errors.js";
 import { OtpStore, RateLimiter, SessionStore, type OtpRecord } from "../application/ports.js";
 
-/**
- * Production auth adapters backed by Redis (ioredis) + rate-limiter-flexible.
- * OTP records and session families are namespaced keys with TTLs; the limiter
- * uses a Redis token bucket so it holds across API instances.
- */
 export const OtpStoreRedis: Layer.Layer<OtpStore, never, RedisClient> = Layer.effect(
   OtpStore,
   Effect.gen(function* () {
@@ -67,8 +62,8 @@ export const RateLimiterRedisLive: Layer.Layer<
     const limiter = new RateLimiterRedis({
       storeClient: redis,
       keyPrefix: "rl",
-      points: 5, // 5 requests
-      duration: 60, // per minute
+      points: 5,
+      duration: 60,
     });
     return {
       consume: (rlKey, points = 1) =>

@@ -16,12 +16,6 @@ export interface StreaksServiceApi {
   readonly forUser: (
     userId: UserId,
   ) => Effect.Effect<ViewerStreak, DatabaseError>;
-  /**
-   * Recompute streak from the full check-in history and grant any newly-earned
-   * bonus days onto the active pass. Idempotent: re-running grants nothing extra
-   * (bonusDaysToGrant compares against what the pass already holds). This is the
-   * body of the `checkin.recorded` streak-recompute worker.
-   */
   readonly recomputeAndGrant: (
     userId: UserId,
   ) => Effect.Effect<ViewerStreak, DatabaseError>;
@@ -54,7 +48,6 @@ export const StreaksServiceLive = Layer.effect(
           const result = yield* compute(userId);
           const pass = yield* passes.activeForUser(userId);
           if (pass) {
-            // Track granted bonus in the pass's bonusDays; grant the delta only.
             const toGrant = bonusDaysToGrant(result.state.weeks, pass.bonusDays);
             if (toGrant > 0) {
               const now = yield* clock.now;

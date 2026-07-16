@@ -8,7 +8,6 @@ export interface BookingRepoApi {
     memberId: UserId,
   ) => Effect.Effect<Booking[], DatabaseError>;
   readonly forCoach: (coachId: CoachId) => Effect.Effect<Booking[], DatabaseError>;
-  /** Non-cancelled booking occupying a coach's exact slot, if any. */
   readonly atSlot: (
     coachId: CoachId,
     scheduledFor: string,

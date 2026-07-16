@@ -5,12 +5,6 @@ import { DatabaseError } from "../../../shared/errors/errors.js";
 import { daysLeft } from "../domain/pass-rules.js";
 import { PassRepo } from "../application/pass-repo.js";
 
-/**
- * Mongo-backed pass repository. Mirrors the canonical onboarding adapter: every
- * document is validated against the contract `Pass` Zod schema at this boundary
- * on both read and write (honoring `schemaVersion`), and driver failures are
- * mapped to the tagged `DatabaseError`.
- */
 const COLLECTION = "passes";
 
 const parsePass = (doc: unknown): Effect.Effect<Pass, DatabaseError> => {
@@ -34,9 +28,6 @@ export const PassRepoMongo: Layer.Layer<PassRepo, never, Mongo> = Layer.effect(
         mongoOp("passes.latestForUser", () =>
           col.find({ userId }).sort({ purchasedAt: -1 }).limit(1).next(),
         ).pipe(Effect.flatMap((doc) => (doc ? parsePass(doc) : Effect.succeed(null)))),
-      // Status-only DB filter; the in-window/expiry decision stays in the
-      // service (injected clock) — but we still drop exhausted passes here so
-      // the semantics match the in-memory adapter.
       activeForUser: (userId: UserId) =>
         mongoOp("passes.activeForUser", () =>
           col.find({ userId, status: "ACTIVE" }).sort({ purchasedAt: -1 }).toArray(),

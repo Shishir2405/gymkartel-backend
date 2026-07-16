@@ -46,7 +46,6 @@ describe("AuthService (application, in-memory ports)", () => {
     expect(ok).toBe(true);
     expect(recorder.sent).toHaveLength(1);
     expect(recorder.sent[0]?.channel).toBe("SMS");
-    // The raw code must be delivered but never logged (redaction covers logs).
     expect(recorder.sent[0]?.params.code).toBeDefined();
   });
 
@@ -73,7 +72,6 @@ describe("AuthService (application, in-memory ports)", () => {
       Effect.gen(function* () {
         const auth = yield* AuthService;
         yield* auth.requestOtp("+919876543210");
-        // The code is only observable via the recorded SMS param (never logged).
         const code = String(recorder.sent[0]?.params.code);
         return yield* auth.verifyOtp("+919876543210", code);
       }).pipe(Effect.provide(layer)),
@@ -92,7 +90,6 @@ describe("AuthService (application, in-memory ports)", () => {
         const code = String(recorder.sent[0]?.params.code);
         const pair = yield* auth.verifyOtp("+919876543210", code);
         const refreshed = yield* auth.refreshSession(pair.refreshToken);
-        // Old refresh token must now be rejected (family rotated).
         const reuse = yield* auth
           .refreshSession(pair.refreshToken)
           .pipe(Effect.either);

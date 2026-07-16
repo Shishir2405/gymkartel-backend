@@ -9,7 +9,6 @@ import { istDayNumber } from "../features/streaks-ranks/domain/ist.js";
 import { runResolver, type GraphQLContext } from "./context.js";
 import { requireViewer } from "./guards.js";
 
-/** Flatten the WorkoutEntry union into the SDL's single WorkoutChip shape. */
 const toChip = (e: WorkoutEntry) => ({
   kind: e.kind,
   exercise: "exercise" in e ? e.exercise : null,

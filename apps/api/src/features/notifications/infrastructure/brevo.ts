@@ -4,12 +4,6 @@ import { Config } from "../../../shared/config/config.js";
 import { ExternalServiceError } from "../../../shared/errors/errors.js";
 import { NotificationService } from "../application/port.js";
 
-/**
- * Brevo adapter for the SMS / EMAIL / WHATSAPP channels. Templates are
- * referenced by the versioned constant ids from the port; message params fill
- * the template. PUSH is handled by the separate Expo adapter. Failures surface
- * as ExternalServiceError so the dispatch worker's DLX+retry can act.
- */
 export const NotificationServiceBrevo: Layer.Layer<NotificationService, never, Config> =
   Layer.effect(
     NotificationService,
@@ -35,7 +29,6 @@ export const NotificationServiceBrevo: Layer.Layer<NotificationService, never, C
                 await smsApi.sendTransacSms(sms);
                 return;
               }
-              // EMAIL
               const email = new Brevo.SendSmtpEmail();
               email.to = [{ email: message.to }];
               email.subject = message.template;
@@ -49,7 +42,6 @@ export const NotificationServiceBrevo: Layer.Layer<NotificationService, never, C
     }),
   );
 
-/** Minimal param interpolation stand-in for Brevo's server-side templates. */
 const renderTemplate = (
   template: string,
   params: Readonly<Record<string, string | number>>,

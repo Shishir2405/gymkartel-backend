@@ -23,26 +23,10 @@ import { PassesService, PassesServiceLive } from "../passes/application/passes-s
 import { CheckInService, CheckInServiceLive } from "../check-in/application/checkin-service.js";
 import type { RazorpayWebhook } from "../payments/domain/webhook.js";
 
-/**
- * Testcontainers-managed integration tier for the CRITICAL money/heartbeat
- * paths. A real single-node MongoDB replica set is started per run (no external
- * Mongo, no docker-compose needed), the code-defined indexes are applied, and
- * the same Effect service wiring the app uses is exercised end-to-end.
- *
- * Gated behind `INTEGRATION` so the default Docker-free `pnpm -r test` skips the
- * whole block (container start, hooks, and all). Run it with Docker up:
- *
- *   INTEGRATION=1 pnpm --filter @gymkartel/api test
- */
 const ENABLED = !!process.env.INTEGRATION;
 
 const ZONE = "koramangala" as Zone;
 
-/**
- * Build the Mongo-backed service stack — the same wiring the app uses at
- * `PERSISTENCE=mongo`. Lazy: ConfigLive reads `process.env` (MONGO_URI) only
- * when the runtime is first used, so we set env before the first `runPromise`.
- */
 const buildRuntime = (recorder: CheckInEventRecorder) => {
   const drivers = MongoLive.pipe(Layer.provide(ConfigLive));
   const repos = Layer.mergeAll(
@@ -112,7 +96,6 @@ describe.skipIf(!ENABLED)("critical paths — Testcontainers Mongo", () => {
   const recorder = new CheckInEventRecorder();
 
   beforeAll(async () => {
-    // Dynamic import so the testcontainers module only loads for the gated run.
     const { MongoDBContainer } = await import("@testcontainers/mongodb");
     container = await new MongoDBContainer("mongo:7").start();
 
@@ -124,12 +107,10 @@ describe.skipIf(!ENABLED)("critical paths — Testcontainers Mongo", () => {
     client = await MongoClient.connect(uri, { directConnection: true });
     db = client.db("gymkartel_it");
 
-    // Apply the code-defined indexes (unique idempotencyKey, unique orderId, …).
     for (const [collection, indexes] of Object.entries(COLLECTION_INDEXES)) {
       await db.collection(collection).createIndexes(indexes);
     }
 
-    // Compose the same Mongo-backed stack the app uses at PERSISTENCE=mongo.
     runtime = buildRuntime(recorder);
   }, 180_000);
 
@@ -200,7 +181,6 @@ describe.skipIf(!ENABLED)("critical paths — Testcontainers Mongo", () => {
           return yield* svc.syncCheckIn(userId, syncInput(key));
         }),
       );
-      // Offline replay: the device re-syncs the same queued scan.
       const replay = await runtime.runPromise(
         Effect.gen(function* () {
           const svc = yield* CheckInService;
@@ -253,7 +233,6 @@ describe.skipIf(!ENABLED)("critical paths — Testcontainers Mongo", () => {
     });
 
     it("activates exactly one pass and a webhook replay never double-activates", async () => {
-      // 1. Purchase: create the Razorpay order intent for a pass.
       const order = await runtime.runPromise(
         Effect.gen(function* () {
           const passes = yield* PassesService;
@@ -264,7 +243,6 @@ describe.skipIf(!ENABLED)("critical paths — Testcontainers Mongo", () => {
 
       const body = JSON.stringify(capturedWebhook(order.orderId, order.amountPaise));
 
-      // Mirror the webhook interface: reconcile, then dispatch ACTIVATE to passes.
       const activate = () =>
         runtime.runPromise(
           Effect.gen(function* () {
@@ -282,7 +260,6 @@ describe.skipIf(!ENABLED)("critical paths — Testcontainers Mongo", () => {
       const first = await activate();
       expect(first.kind).toBe("ACTIVATE");
 
-      // 2. Webhook replay (Razorpay resends): must be a NOOP, no second pass.
       const replay = await activate();
       expect(replay.kind).toBe("NOOP");
 

@@ -3,14 +3,6 @@ import amqp, { type Channel, type ChannelModel, type ConsumeMessage } from "amqp
 import { Config } from "../config/config.js";
 import { MessageQueueError } from "../errors/errors.js";
 
-/**
- * RabbitMQ topology (amqplib) wrapped as an Effect layer.
- *
- * Every logical queue gets a matching dead-letter exchange (DLX) and a retry
- * queue with a per-message TTL so a failed consumer nacks → message lands on
- * the retry queue → after the backoff delay it is re-published to the primary
- * queue. After N attempts it is parked on the `<queue>.dead` queue for a human.
- */
 export const EXCHANGE = "gymkartel.events";
 export const DLX = "gymkartel.dlx";
 export const RETRY_EXCHANGE = "gymkartel.retry";
@@ -35,7 +27,6 @@ export interface RabbitApi {
 
 export class Rabbit extends Context.Tag("shared/Rabbit")<Rabbit, RabbitApi>() {}
 
-/** Assert the primary + retry + dead topology for one routing key / queue. */
 export const assertQueueTopology = async (
   ch: Channel,
   queue: string,
@@ -46,7 +37,6 @@ export const assertQueueTopology = async (
   await ch.assertExchange(DLX, "topic", { durable: true });
   await ch.assertExchange(RETRY_EXCHANGE, "topic", { durable: true });
 
-  // Primary queue: failures are dead-lettered to the retry exchange.
   await ch.assertQueue(queue, {
     durable: true,
     deadLetterExchange: RETRY_EXCHANGE,
@@ -54,8 +44,6 @@ export const assertQueueTopology = async (
   });
   await ch.bindQueue(queue, EXCHANGE, routingKey);
 
-  // Retry queue: holds messages for `retryDelayMs`, then dead-letters back to
-  // the primary exchange for another attempt.
   const retryQueue = `${queue}.retry`;
   await ch.assertQueue(retryQueue, {
     durable: true,
@@ -65,7 +53,6 @@ export const assertQueueTopology = async (
   });
   await ch.bindQueue(retryQueue, RETRY_EXCHANGE, routingKey);
 
-  // Dead queue: terminal parking for messages that exhausted retries.
   const deadQueue = `${queue}.dead`;
   await ch.assertQueue(deadQueue, { durable: true });
   await ch.bindQueue(deadQueue, DLX, routingKey);
@@ -109,7 +96,6 @@ export const RabbitLive = Layer.scoped(
   }),
 );
 
-/** Attempt count read from x-death headers (retry-with-backoff bookkeeping). */
 export const attemptCount = (msg: ConsumeMessage): number => {
   const xDeath = msg.properties.headers?.["x-death"];
   if (!Array.isArray(xDeath) || xDeath.length === 0) return 0;

@@ -22,7 +22,6 @@ const readRawBody = (req: IncomingMessage): Promise<string> =>
     req.on("error", reject);
   });
 
-/** The Yoga instance (also usable directly in tests via `yoga.fetch`). */
 export const buildYoga = () =>
   createYoga({
     schema: buildSchema(),
@@ -35,13 +34,6 @@ export const buildYoga = () =>
     },
   });
 
-/**
- * Attach a graphql-ws WebSocket transport at the GraphQL endpoint so live
- * subscriptions (e.g. chat `messageReceived`) work over WS in addition to
- * Yoga's default SSE. Uses the canonical graphql-yoga ⇄ graphql-ws bridge:
- * every WS operation is executed through the SAME envelop pipeline (schema,
- * validation, context) as HTTP, so auth and resolvers behave identically.
- */
 const attachSubscriptions = (
   httpServer: Server,
   yoga: ReturnType<typeof buildYoga>,
@@ -53,11 +45,7 @@ const attachSubscriptions = (
 
   useServer(
     {
-      // rootValue carries the envelop-bound execute/subscribe — see onSubscribe.
-      // TODO(graphql-ws): rootValue plumbing is loosely typed by the canonical
-      // graphql-yoga bridge; args shape is validated at runtime by envelop.
       execute: (args: any) => args.rootValue.execute(args),
-      // TODO(graphql-ws): same loosely-typed bridge as execute above.
       subscribe: (args: any) => args.rootValue.subscribe(args),
       onSubscribe: async (ctx, msg) => {
         const { schema, execute, subscribe, contextFactory, parse, validate } =
@@ -115,7 +103,6 @@ export const createApiServer = () => {
           return;
         }
 
-        // Delegate everything else to Yoga (the /graphql endpoint + GraphiQL).
         void yoga(req, res);
       } catch (err) {
         res.writeHead(500, { "content-type": "application/json" });

@@ -4,12 +4,6 @@ import { Mongo, mongoOp } from "../../shared/db/mongo.js";
 import { DatabaseError } from "../../shared/errors/errors.js";
 import { FeatureFlags, type FeatureFlagKey } from "./feature-flags.js";
 
-/**
- * Mongo-backed feature flags (`featureFlags` collection, unique on `key`).
- * Flags are feature-internal, validated with a local Zod schema. Reads hit the
- * `uniq_flag` index. (A production build layers a short-TTL Redis cache in front
- * of this; the port is identical either way.)
- */
 const COLLECTION = "featureFlags";
 
 const FlagDoc = z.object({

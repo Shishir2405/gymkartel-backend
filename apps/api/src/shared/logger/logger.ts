@@ -4,11 +4,6 @@ import { pino, type Logger as PinoLogger } from "pino";
 import type { AppConfig } from "../config/config.js";
 import { Config } from "../config/config.js";
 
-/**
- * Structured logging (Pino) with hard PII redaction baked into config: phone,
- * UPI, Authorization headers and payment tokens are stripped at serialization
- * time so they can never reach a log sink. Request-id flows via AsyncLocalStorage.
- */
 const REDACT_PATHS = [
   "phone",
   "*.phone",
@@ -82,7 +77,6 @@ export const LoggerLive = Layer.effect(
   }),
 );
 
-/** Silent logger for tests (no output, still satisfies the port). */
 export const LoggerTest = Layer.succeed(
   Logger,
   wrap(pino({ level: "silent" })),

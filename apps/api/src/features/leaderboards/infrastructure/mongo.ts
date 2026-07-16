@@ -7,13 +7,6 @@ import {
   type StoredLeaderboardRow,
 } from "../application/leaderboard-service.js";
 
-/**
- * Mongo-backed leaderboard rows (`leaderboardEntries` collection) — the hot read
- * path called out in the brief (index { zone:1, season:1, streak:-1 }). Rows are
- * feature-internal, validated with a local Zod schema. `upsert` is keyed by the
- * (segment, scopeKey, season, userId) tuple so a member has exactly one row per
- * segment per monthly season.
- */
 const COLLECTION = "leaderboardEntries";
 
 const StoredRowDoc = z.object({

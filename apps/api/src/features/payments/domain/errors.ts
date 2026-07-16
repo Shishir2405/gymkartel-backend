@@ -8,7 +8,6 @@ export class OrderNotFound extends Data.TaggedError("OrderNotFound")<{
   readonly orderId: string;
 }> {}
 
-/** A webhook we've already reconciled — safe no-op (idempotency), not an error. */
 export class DuplicateWebhook extends Data.TaggedError("DuplicateWebhook")<{
   readonly orderId: string;
 }> {}

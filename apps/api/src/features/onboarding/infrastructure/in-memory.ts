@@ -3,7 +3,6 @@ import type { User } from "@gymkartel/contracts";
 import { InMemoryCollection } from "../../../shared/persistence/in-memory.js";
 import { UserRepo } from "../application/user-repo.js";
 
-/** In-memory user repository. Seeded with fixtures for tests / local runtime. */
 export const UserRepoMemory = (seed: readonly User[] = []): Layer.Layer<UserRepo> =>
   Layer.sync(UserRepo, () => {
     const col = new InMemoryCollection<User>((u) => u.id, seed);

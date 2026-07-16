@@ -5,11 +5,6 @@ import { Config } from "./shared/config/config.js";
 import { Logger } from "./shared/logger/logger.js";
 import { initTelemetry, shutdownTelemetry } from "./shared/telemetry/telemetry.js";
 
-/**
- * API entrypoint. Boots telemetry, builds the HTTP server (GraphQL + webhooks +
- * health) and installs graceful shutdown. Uses the infra-free runtime so it
- * starts without Mongo/Redis/Rabbit; production swaps the composition root.
- */
 const main = async (): Promise<void> => {
   const config = await appRuntime.runPromise(Config);
   initTelemetry(config);

@@ -4,11 +4,6 @@ import { Config } from "../../../shared/config/config.js";
 import { ExternalServiceError } from "../../../shared/errors/errors.js";
 import { NotificationService } from "../application/port.js";
 
-/**
- * Expo push adapter — the PUSH channel of the NotificationService port. `to` is
- * an Expo push token. Non-PUSH messages are a no-op here (Brevo owns them); the
- * composition root layers both adapters and routes by channel where needed.
- */
 export const NotificationServiceExpo: Layer.Layer<NotificationService, never, Config> =
   Layer.effect(
     NotificationService,

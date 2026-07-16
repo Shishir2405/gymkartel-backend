@@ -32,7 +32,6 @@ import { coachPortalResolvers } from "./coach-portal-resolvers.js";
 import { notificationResolvers } from "./notification-resolvers.js";
 import { featureFlagResolvers } from "./feature-flag-resolvers.js";
 
-/** Resolve the viewer's tier (used by tier-scoped queries). Defaults BASIC. */
 const viewerTier = (ctx: GraphQLContext): Effect.Effect<Tier, never, UserRepo> => {
   const v = ctx.viewer;
   if (!v) return Effect.succeed("BASIC");
@@ -43,7 +42,6 @@ const viewerTier = (ctx: GraphQLContext): Effect.Effect<Tier, never, UserRepo> =
   );
 };
 
-/** CheckIn carries a resolver-only dayNumber annotation (not persisted). */
 type AnnotatedCheckIn = CheckIn & { readonly __dayNumber?: number };
 
 const annotateHistory = (rows: readonly CheckIn[]): AnnotatedCheckIn[] => {
@@ -215,11 +213,6 @@ const coreResolvers = {
       );
     },
 
-    /**
-     * Open UPI checkout for a tier top-up before the scan is confirmed (Flow 4).
-     * Reuses the scan's order path, so paying here then syncing with the same
-     * idempotencyKey collapses onto one Razorpay order.
-     */
     createTopUpOrder: (
       _p: unknown,
       args: {
@@ -253,11 +246,6 @@ const coreResolvers = {
       );
     },
 
-    /**
-     * Reserve a coach slot + create its Razorpay order (review & pay, Flow 5).
-     * Priced at the coach's pricePerSession by the bookings service — no new
-     * pricing path is invented here.
-     */
     createBookingOrder: (
       _p: unknown,
       args: {
@@ -286,10 +274,6 @@ const coreResolvers = {
       );
     },
 
-    /**
-     * Never a wall: a TopUpRequired domain error is caught here and returned in
-     * the `topUpRequired` branch of the result (not raised as a GraphQL error).
-     */
     syncCheckIn: (_p: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const viewer = requireViewer(ctx);
       return runResolver(
@@ -350,7 +334,6 @@ const coreResolvers = {
 
   Gym: {
     distanceMeters: () => null,
-    /** Map the stored GeoJSON point (coordinates: [lng, lat]) to { lat, lng }. */
     location: (g: Gym) => {
       const [lng, lat] = g.location.coordinates;
       return { lat, lng };
@@ -388,12 +371,6 @@ const coreResolvers = {
   },
 };
 
-/**
- * Merge the per-feature resolver modules into the single executable map that
- * `schema.ts` binds against. Each module contributes its own Query/Mutation/
- * Subscription fields (and, for the core module, the object type resolvers);
- * we shallow-merge per GraphQL type so a field is never silently dropped.
- */
 type ResolverMap = Record<string, Record<string, unknown>>;
 
 const mergeResolvers = (...maps: readonly ResolverMap[]): ResolverMap => {

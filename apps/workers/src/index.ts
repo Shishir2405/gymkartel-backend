@@ -26,33 +26,18 @@ import {
 
 const log = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
-/**
- * The @gymkartel/workers app. Hosts every RabbitMQ consumer (streak/rank
- * recompute, share-card render, notification dispatch, payout batch, incident
- * escalation). Each consumer runs its handler as an Effect and applies the
- * shared DLX + retry-with-backoff policy: transient failures nack → delayed
- * retry queue → primary; after MAX_ATTEMPTS the message is parked on the dead
- * queue for a human.
- */
 type Handler = (raw: unknown) => Effect.Effect<void, unknown>;
 
 const deps: HandlerDeps = {
   log: (msg, meta) => log.info(meta ?? {}, msg),
-  // Production wires this to the Mongo check-in repo; standalone it is empty.
   loadCheckInInstants: async () => [],
   now: () => new Date(),
 };
 
-/**
- * Share-card consumer deps. `loadCardData` resolves the marketing fields from
- * the check-in history (production wires the gym name from the Mongo gym repo);
- * `upload` renders to the dedicated share-card bucket via the R2 adapter.
- */
 const shareCardDeps: ShareCardDeps = {
   log: deps.log,
   loadCardData: async (evt) =>
     buildShareCardData({
-      // TODO(gym-name): resolve the human gym name from the gym repo in prod.
       gymName: evt.gymId,
       checkInInstants: await deps.loadCheckInInstants(evt.userId),
       now: deps.now(),
@@ -76,12 +61,10 @@ const registerConsumer = async (
       .then(() => ch.ack(msg))
       .catch((err: unknown) => {
         if (retryDecision(attempts) === "PARK") {
-          // Exhausted retries → park on the dead queue, then ack the original.
           ch.publish(DLX, routingKey, msg.content, { persistent: true });
           ch.ack(msg);
           log.error({ routingKey, attempts, err: String(err) }, "message parked (dead)");
         } else {
-          // Dead-letter to the retry exchange → delayed re-delivery.
           ch.nack(msg, false, false);
           log.warn({ routingKey, attempts, err: String(err) }, "message retrying");
         }
@@ -113,12 +96,10 @@ const main = async (): Promise<void> => {
   await ch.prefetch(Number(process.env.RABBITMQ_PREFETCH ?? 10));
 
   await registerConsumer(ch, ROUTING.checkinRecorded, streakRecompute(deps));
-  // Rank recompute shares the checkin.recorded stream on its own queue binding.
   await registerConsumer(ch, ROUTING.shareCardRender, shareCardRender(shareCardDeps));
   await registerConsumer(ch, ROUTING.notificationDispatch, notificationDispatch(deps));
   await registerConsumer(ch, ROUTING.payoutBatch, payoutBatch(deps));
   await registerConsumer(ch, ROUTING.incidentEscalation, incidentEscalation(deps));
-  // rankRecompute is available for a dedicated binding in production topology.
   void rankRecompute;
 
   const shutdown = async (): Promise<void> => {

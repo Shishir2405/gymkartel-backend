@@ -4,12 +4,6 @@ import { UserRepo } from "../features/onboarding/application/user-repo.js";
 import { runResolver, type GraphQLContext } from "./context.js";
 import { requireViewer } from "./guards.js";
 
-/**
- * Safety (SOS) resolvers. This is the plain, non-themed safety surface: trigger
- * SOS, set/read the trusted contact, and list the viewer's incidents. All logic
- * (trusted-contact requirement, escalation) lives in SafetyService — resolvers
- * only adapt shapes and enforce authentication.
- */
 export const safetyResolvers = {
   Query: {
     incidents: (_p: unknown, _a: unknown, ctx: GraphQLContext) => {

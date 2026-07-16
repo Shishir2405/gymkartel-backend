@@ -84,9 +84,8 @@ export const AuthServiceLive = Layer.effect(
       requestOtp: (rawPhone) =>
         Effect.gen(function* () {
           const phone = yield* parsePhone(rawPhone);
-          // Two buckets: per-phone (abuse) and coarse global handled at edge.
           yield* rateLimiter.consume(`otp:req:${phone}`);
-          const code = String(randomInt(100000, 1000000)); // 6-digit
+          const code = String(randomInt(100000, 1000000));
           const now = yield* clock.now;
           yield* otpStore.put(
             phone,
@@ -97,7 +96,6 @@ export const AuthServiceLive = Layer.effect(
             },
             config.otpTtlSeconds,
           );
-          // Enqueue via NotificationService (Brevo SMS). Never log the code.
           yield* notifier
             .send({
               channel: "SMS",
@@ -137,13 +135,9 @@ export const AuthServiceLive = Layer.effect(
           }
           yield* otpStore.clear(phone);
 
-          // Existing user → login; new user → provisional account (profile
-          // completed in onboarding). We only create the auth shell here.
           const existing = yield* users.findByPhone(phone);
           const user: User | null = existing;
           if (!user) {
-            // No profile yet: issue tokens against a phone-derived subject so the
-            // client can drive onboarding; onboarding.createProfile fills the doc.
             const provisionalId = `pending_${hashCode(phone).slice(0, 16)}`;
             const fam = randomUUID();
             yield* sessions.setFamily(provisionalId, fam, config.jwtRefreshTtlSeconds);
@@ -162,7 +156,6 @@ export const AuthServiceLive = Layer.effect(
           const claims = yield* tokens.verifyRefresh(refreshToken);
           const currentFam = yield* sessions.getFamily(claims.sub);
           if (currentFam === null || currentFam !== claims.fam) {
-            // Reuse of an old/rotated token → treat family as compromised.
             return yield* Effect.fail(
               new UnauthorizedError({ reason: "refresh token reuse detected" }),
             );

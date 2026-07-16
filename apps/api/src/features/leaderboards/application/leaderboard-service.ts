@@ -13,8 +13,8 @@ export type Segment = "ZONE" | "STATE" | "INDIA";
 
 export interface StoredLeaderboardRow extends LeaderboardEntry {
   readonly segment: Segment;
-  readonly scopeKey: string; // zone id / state id / "INDIA"
-  readonly season: string; // IST month YYYY-MM
+  readonly scopeKey: string;
+  readonly season: string;
 }
 
 export interface LeaderboardRepoApi {
@@ -33,11 +33,6 @@ export class LeaderboardRepo extends Context.Tag(
 )<LeaderboardRepo, LeaderboardRepoApi>() {}
 
 export interface LeaderboardServiceApi {
-  /**
-   * Ranked view for a segment (ZONE/STATE/INDIA) in the CURRENT monthly season,
-   * with a sticky self-row. Ranking is attendance-only (streak, then check-ins)
-   * — money never influences position.
-   */
   readonly view: (input: {
     readonly segment: Segment;
     readonly scopeKey: string;
@@ -80,7 +75,6 @@ const key = (
   r: Pick<StoredLeaderboardRow, "segment" | "scopeKey" | "season" | "userId">,
 ) => `${r.segment}:${r.scopeKey}:${r.season}:${r.userId}`;
 
-/** Factory variant that pre-seeds rows (used by the infra-free runtime). */
 export const LeaderboardRepoMemorySeeded = (
   seed: readonly StoredLeaderboardRow[] = [],
 ): Layer.Layer<LeaderboardRepo> =>

@@ -14,7 +14,6 @@ export const GymRepoMemory = (seed: readonly Gym[] = []): Layer.Layer<GymRepo> =
           if (query.zone && g.zone !== query.zone) return false;
           if (query.tier && !query.includeOtherTiers && g.tier !== query.tier)
             return false;
-          // When peeking other tiers we still hide gyms far above the viewer's.
           if (query.tier && query.includeOtherTiers) {
             if (TIER_RANK[g.tier] > TIER_RANK[query.tier] + 1) return false;
           }

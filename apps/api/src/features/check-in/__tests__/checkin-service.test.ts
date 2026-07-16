@@ -125,7 +125,6 @@ describe("CheckInService (heartbeat, idempotent)", () => {
       }).pipe(Effect.provide(layer)),
     );
     expect(out.a.id).toBe(out.b.id);
-    // Only one fan-out event despite two syncs.
     expect(recorder.events).toHaveLength(1);
   });
 

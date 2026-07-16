@@ -15,7 +15,6 @@ export interface AccessClaims {
 
 export interface RefreshClaims {
   readonly sub: UserId;
-  /** Rotation family id — a refresh reuse detection anchor. */
   readonly fam: string;
 }
 
@@ -24,11 +23,6 @@ export interface TokenPair {
   readonly refreshToken: string;
 }
 
-/**
- * JWT issue/verify/rotate. Access tokens are short-lived; refresh tokens rotate
- * (a new family id per login, re-signed on each refresh) so a leaked refresh
- * token can be revoked by dropping its family.
- */
 export interface TokenServiceApi {
   readonly issue: (claims: AccessClaims, fam: string) => Effect.Effect<TokenPair>;
   readonly verifyAccess: (

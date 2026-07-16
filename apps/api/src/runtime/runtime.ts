@@ -52,9 +52,6 @@ import { CoachPortalServiceLive } from "../features/coach-portal/application/coa
 import { NotificationInboxMemory } from "../features/notifications/application/inbox.js";
 import { FeatureFlagsMemory } from "../features/feature-flags/feature-flags.js";
 
-// Driver-backed (production) adapters + shared infra layers, wired on the
-// mongo composition path. Kept lazy: none of these dial a socket until the
-// runtime is actually used, so importing them costs nothing for the memory path.
 import { MongoLive } from "../shared/db/mongo.js";
 import { RedisLive } from "../shared/redis/redis.js";
 import { RabbitLive } from "../shared/mq/rabbit.js";
@@ -91,19 +88,6 @@ import {
   seedFeatureFlags,
 } from "./fixtures.js";
 
-/**
- * Composition root. Two interchangeable infrastructure stacks provide the exact
- * same set of Effect ports, so the application/service wiring below is identical
- * regardless of which is selected:
- *
- *   - `memoryInfra` (DEFAULT): infra-free in-memory adapters + seed fixtures.
- *     Every test and `pnpm dev` use this — the API boots without Docker.
- *   - `mongoInfra`: the driver-backed stack (MongoDB repos, Redis-backed auth
- *     stores + rate limiter, RabbitMQ event fan-out, live Razorpay gateway).
- *
- * Selected by `PERSISTENCE=memory|mongo` (read via Config). The default is
- * `memory`, so `pnpm -r test` never depends on containers.
- */
 const memoryInfra = Layer.mergeAll(
   ConfigLive,
   ClockLive,
@@ -130,13 +114,6 @@ const memoryInfra = Layer.mergeAll(
   FeatureFlagsMemory(seedFeatureFlags),
 ).pipe(Layer.provideMerge(ConfigLive));
 
-/**
- * Shared driver connections (scoped, closed on runtime teardown). Their
- * construction errors are `orDie`d — a production boot that can't reach
- * Mongo/Redis/Rabbit should crash loudly, not surface a typed error into every
- * service. `provide` (not `provideMerge`) hides the raw clients so `mongoInfra`
- * exposes exactly the same port set as `memoryInfra`.
- */
 const mongoDrivers = Layer.mergeAll(MongoLive, RedisLive, RabbitLive).pipe(
   Layer.provide(ConfigLive),
   Layer.orDie,
@@ -145,8 +122,6 @@ const mongoDrivers = Layer.mergeAll(MongoLive, RedisLive, RabbitLive).pipe(
 const mongoInfra = Layer.mergeAll(
   ClockLive,
   LoggerLive,
-  // No SMS/email provider adapter exists yet — the outbound notifier stays the
-  // in-memory sink even on the mongo path (the in-app inbox IS Mongo-backed).
   NotificationServiceMemory(),
   OtpStoreRedis,
   SessionStoreRedis,
@@ -169,11 +144,8 @@ const mongoInfra = Layer.mergeAll(
   FeatureFlagsMongo,
 ).pipe(Layer.provide(mongoDrivers), Layer.provideMerge(ConfigLive));
 
-// Read the toggle straight from the environment at composition time (the same
-// trust boundary ConfigLive parses). Defaults to the memory stack.
 const infra = process.env.PERSISTENCE === "mongo" ? mongoInfra : memoryInfra;
 
-// Tier 1: services that depend only on infra.
 const tokens = TokenServiceLive.pipe(Layer.provide(infra));
 const payments = PaymentsServiceLive.pipe(Layer.provide(infra));
 const coaches = CoachesServiceLive.pipe(Layer.provide(infra));
@@ -197,7 +169,6 @@ const tier1 = Layer.mergeAll(
   coachPortal,
 );
 
-// Tier 2: services that also depend on tier-1 services (payments/tokens).
 const passes = PassesServiceLive.pipe(Layer.provide(tier1));
 const checkin = CheckInServiceLive.pipe(Layer.provide(tier1));
 const bookings = BookingsServiceLive.pipe(Layer.provide(tier1));
@@ -216,5 +187,4 @@ export const AppLayer = Layer.mergeAll(
 export const appRuntime = ManagedRuntime.make(AppLayer);
 export type AppRuntime = typeof appRuntime;
 
-/** The full service environment provided by the runtime. */
 export type AppServices = ManagedRuntime.ManagedRuntime.Context<AppRuntime>;

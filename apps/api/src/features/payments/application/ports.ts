@@ -9,11 +9,6 @@ export interface CreatedOrder {
   readonly currency: string;
 }
 
-/**
- * Razorpay client port (UPI-first). The live adapter talks to the Razorpay SDK;
- * the fake generates deterministic order ids for tests. Signature verification
- * lives here because only the adapter holds the webhook secret.
- */
 export interface PaymentGatewayApi {
   readonly createOrder: (input: {
     readonly amountPaise: number;
@@ -31,7 +26,6 @@ export class PaymentGateway extends Context.Tag("features/payments/PaymentGatewa
   PaymentGatewayApi
 >() {}
 
-/** Persistence for order intents — the idempotency anchor keyed by orderId. */
 export interface OrderRepoApi {
   readonly create: (intent: OrderIntent) => Effect.Effect<OrderIntent, DatabaseError>;
   readonly get: (orderId: string) => Effect.Effect<OrderIntent | null, DatabaseError>;

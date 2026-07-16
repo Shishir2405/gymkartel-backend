@@ -5,11 +5,6 @@ import { Mongo, mongoOp } from "../../../shared/db/mongo.js";
 import { DatabaseError } from "../../../shared/errors/errors.js";
 import { IncidentRepo, type IncidentReport } from "../application/safety-service.js";
 
-/**
- * Mongo-backed incident log (`incidents` collection). Reports are
- * feature-internal, validated with a local Zod schema. Per-user reads use the
- * `user_createdAt` index in `shared/db/indexes.ts`.
- */
 const COLLECTION = "incidents";
 
 const IncidentDoc = z.object({

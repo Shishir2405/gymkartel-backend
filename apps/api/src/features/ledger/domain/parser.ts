@@ -1,10 +1,3 @@
-/**
- * Free-text workout parser (Flow 6). Turns a line like
- *   "bench 3x8 60kg, squat 5x5 100, run 5km"
- * into structured chips. When a token is ambiguous it is emitted with an amber
- * `uncertain` flag and a reason — the parser NEVER silently guesses (product
- * rule). The UI renders uncertain chips with a "?" for the member to confirm.
- */
 
 export interface StrengthEntry {
   readonly kind: "STRENGTH";
@@ -92,7 +85,6 @@ const parseStrength = (
     sets,
     reps,
     weightKg,
-    // weight without an explicit unit is a guess → amber, not silent.
     uncertain: weightKg !== null && !sawWeightUnit,
     ...(weightKg !== null && !sawWeightUnit
       ? { note: "Assumed kg — tap to confirm" }
@@ -167,7 +159,6 @@ export const parseWorkout = (input: string): WorkoutEntry[] =>
     };
   });
 
-/** PR check: is `weightKg` a strict personal record vs prior bests for exercise? */
 export const isPersonalRecord = (
   weightKg: number | null,
   priorBestKg: number | null,

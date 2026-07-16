@@ -42,7 +42,6 @@ describe("LeaderboardService (segments + seasons + sticky self)", () => {
         });
       }).pipe(Effect.provide(layer)),
     );
-    // Higher streak ranks first (attendance only, money-agnostic).
     expect(view.page[0]?.userId).toBe("u2");
     expect(view.page[0]?.position).toBe(1);
   });
@@ -51,8 +50,6 @@ describe("LeaderboardService (segments + seasons + sticky self)", () => {
     const view = await Effect.runPromise(
       Effect.gen(function* () {
         const lb = yield* LeaderboardService;
-        // Manually seed a different-season row via record won't work (uses now);
-        // so query an empty scope to confirm season scoping returns nothing.
         return yield* lb.view({
           segment: "STATE",
           scopeKey: "KA",

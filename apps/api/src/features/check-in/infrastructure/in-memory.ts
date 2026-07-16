@@ -40,7 +40,6 @@ export const CheckInRepoMemory = (
     };
   });
 
-/** In-memory event sink — captures fan-out events for assertions. */
 export class CheckInEventRecorder {
   readonly events: CheckinRecordedEvent[] = [];
 }

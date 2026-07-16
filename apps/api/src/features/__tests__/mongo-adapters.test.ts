@@ -10,13 +10,6 @@ import { FeatureFlags } from "../feature-flags/feature-flags.js";
 import { FeatureFlagsMongo } from "../feature-flags/mongo.js";
 import type { Pass } from "@gymkartel/contracts";
 
-/**
- * Docker-free tests for the Mongo repo adapters. They exercise the ONE thing
- * the adapters own beyond the driver: the Zod trust boundary (valid docs parse
- * and round-trip; malformed docs map to a tagged `DatabaseError` instead of
- * leaking into the domain). The driver itself is faked with a tiny in-array
- * collection — the live-Mongo path is covered by the INTEGRATION-gated suite.
- */
 type Row = Record<string, unknown>;
 
 const shallowMatch = (row: Row, filter: Row): boolean =>
@@ -32,11 +25,9 @@ const makeCursor = (rows: Row[]) => {
   return cursor;
 };
 
-/** A Mongo layer backed by plain arrays, keyed by collection name. */
 const fakeMongo = (seed: Record<string, Row[]>): Layer.Layer<Mongo> => {
   const store: Record<string, Row[]> = { ...seed };
   const api: MongoApi = {
-    // TODO(test-fake): only the handful of ops the adapters call are stubbed.
     db: {} as Db,
     collection: <T extends Document = Document>(name: string) => {
       const rows = (store[name] ??= []);
@@ -91,7 +82,7 @@ describe("Mongo adapters — Zod boundary (Docker-free)", () => {
   });
 
   it("PassRepoMongo.getById fails with DatabaseError on a malformed document", async () => {
-    const bad = { id: "pass_bad", status: "ACTIVE" }; // missing required fields
+    const bad = { id: "pass_bad", status: "ACTIVE" };
     const layer = Layer.provide(PassRepoMongo, fakeMongo({ passes: [bad] }));
     const exit = await runExit(
       Effect.gen(function* () {
@@ -111,7 +102,6 @@ describe("Mongo adapters — Zod boundary (Docker-free)", () => {
     const exit = await runExit(
       Effect.gen(function* () {
         const repo = yield* PassRepo;
-        // Cast a malformed object through the port to prove the write boundary.
         return yield* repo.insert({ id: "x" } as unknown as Pass);
       }).pipe(Effect.provide(layer)),
     );

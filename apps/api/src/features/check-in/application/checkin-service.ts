@@ -34,7 +34,6 @@ import {
 import { CheckInEvents, CheckInRepo } from "./ports.js";
 import type { CreatedOrder } from "../../payments/application/ports.js";
 
-/** Errors surfaced when opening UPI checkout for a tier top-up (Flow 4). */
 export type TopUpOrderError =
   | GymNotFound
   | NoActivePass
@@ -56,23 +55,11 @@ export type SyncError =
   | MessageQueueError;
 
 export interface CheckInServiceApi {
-  /**
-   * Sync one (possibly offline-queued) check-in. The SERVER is the reconciler:
-   * idempotent on `idempotencyKey`, so retries/duplicates/replay all collapse
-   * to a single stored check-in. Resolves gym, tier, top-up and day-consumption.
-   */
   readonly syncCheckIn: (
     userId: UserId,
     rawInput: unknown,
   ) => Effect.Effect<CheckIn, SyncError>;
 
-  /**
-   * Create (or reuse) the Razorpay order for the top-up delta when the given gym
-   * (by id or check-in code) is above the viewer's pass tier, WITHOUT recording a
-   * check-in. Reuses the exact order-creation path `syncCheckIn` uses (purpose
-   * TOP_UP, ref `{ gymId, key: idempotencyKey }`) so the app can open UPI
-   * checkout up-front and the later scan collapses onto the same order.
-   */
   readonly createTopUpOrder: (
     userId: UserId,
     input: {
@@ -118,11 +105,9 @@ export const CheckInServiceLive = Layer.effect(
           }
           const input = parsed.data;
 
-          // 1. Idempotency: a prior sync with this key wins — return it as-is.
           const prior = yield* checkIns.findByIdempotencyKey(input.idempotencyKey);
           if (prior) return prior;
 
-          // 2. Resolve the gym from the scanned QR payload.
           const gym = yield* gyms.getByCheckInCode(input.gymCheckInCode);
           if (!gym) {
             return yield* Effect.fail(
@@ -130,7 +115,6 @@ export const CheckInServiceLive = Layer.effect(
             );
           }
 
-          // 3. Require a usable pass.
           const pass = yield* passes.activeForUser(userId);
           if (!pass) return yield* Effect.fail(new NoActivePass({ userId }));
           const now = yield* clock.now;
@@ -142,7 +126,6 @@ export const CheckInServiceLive = Layer.effect(
             return yield* Effect.fail(new NoActivePass({ userId }));
           }
 
-          // 4. Top-up resolution (Flow 4). The order is the idempotency anchor.
           const topUpRef = { gymId: gym.id, key: input.idempotencyKey };
           const firstPass = resolveScan({
             passTier: pass.tier,
@@ -155,7 +138,6 @@ export const CheckInServiceLive = Layer.effect(
           let topUpOrderId: string | null = null;
 
           if (firstPass.kind !== "FREE") {
-            // A delta is due — create/reuse the Razorpay order for it.
             const order = yield* payments.createOrder({
               purpose: "TOP_UP",
               userId,
@@ -166,7 +148,6 @@ export const CheckInServiceLive = Layer.effect(
             const paid = yield* payments.isPaid(order.orderId);
 
             if (!input.acceptedTopUp) {
-              // Never a wall: surface the sheet with cost + order.
               return yield* Effect.fail(
                 new TopUpRequired({
                   gymTier: gym.tier,
@@ -184,7 +165,6 @@ export const CheckInServiceLive = Layer.effect(
             topUpAmount = firstPass.amountPaise;
           }
 
-          // 5. Record the check-in. Consume a pass DAY only once per IST day.
           const dayNum = istDayNumber(new Date(input.scannedAt));
           const alreadyToday = yield* checkIns.existsForUserOnDay(userId, dayNum);
 
@@ -209,7 +189,6 @@ export const CheckInServiceLive = Layer.effect(
 
           const inserted = yield* checkIns.insert(checkIn).pipe(
             Effect.catchTag("DatabaseError", (e) =>
-              // Unique-key race on idempotencyKey → treat as duplicate success.
               checkIns.findByIdempotencyKey(input.idempotencyKey).pipe(
                 Effect.flatMap((existing) =>
                   existing
@@ -233,8 +212,6 @@ export const CheckInServiceLive = Layer.effect(
             });
           }
 
-          // 6. Fan out for streak/rank/share-card. Failure here must not fail
-          // the check-in (the heartbeat already happened) — log and move on.
           yield* events
             .recorded({
               checkInId: inserted.id,
@@ -254,7 +231,6 @@ export const CheckInServiceLive = Layer.effect(
 
       createTopUpOrder: (userId, input) =>
         Effect.gen(function* () {
-          // Resolve the gym from either scanner entry point (id or QR code).
           const gym = yield* (input.gymId
             ? gyms.getById(input.gymId as GymId)
             : gyms.getByCheckInCode(input.gymCheckInCode ?? ""));
@@ -266,7 +242,6 @@ export const CheckInServiceLive = Layer.effect(
             );
           }
 
-          // Require a usable pass — same gate the scan uses.
           const pass = yield* passes.activeForUser(userId);
           if (!pass) return yield* Effect.fail(new NoActivePass({ userId }));
           const now = yield* clock.now;
@@ -278,7 +253,6 @@ export const CheckInServiceLive = Layer.effect(
             return yield* Effect.fail(new NoActivePass({ userId }));
           }
 
-          // Same pure decision as the scan; pricing stays sourced from contracts.
           const decision = resolveScan({
             passTier: pass.tier,
             gymTier: gym.tier,
@@ -291,8 +265,6 @@ export const CheckInServiceLive = Layer.effect(
             );
           }
 
-          // Reuse the scan's order ref so the eventual syncCheckIn (same
-          // idempotencyKey) collapses onto this order — no duplicate charge.
           return yield* payments.createOrder({
             purpose: "TOP_UP",
             userId,

@@ -5,12 +5,6 @@ import { Mongo, mongoOp } from "../../../shared/db/mongo.js";
 import { DatabaseError } from "../../../shared/errors/errors.js";
 import { LedgerRepo, type LoggedEntry } from "../application/ledger-service.js";
 
-/**
- * Mongo-backed workout ledger (`ledgerEntries` collection). Entries are
- * feature-internal (the parsed `WorkoutEntry` union), validated with a local
- * Zod schema mirroring the parser's discriminated union. PR lookups use the
- * `user_exercise` index in `shared/db/indexes.ts`.
- */
 const COLLECTION = "ledgerEntries";
 
 const StrengthEntryDoc = z.object({
@@ -55,10 +49,6 @@ const LoggedEntryDoc = z.object({
 
 const parseEntry = (doc: unknown): Effect.Effect<LoggedEntry, DatabaseError> => {
   const r = LoggedEntryDoc.safeParse(doc);
-  // `z.optional()` widens `note` to `string | undefined`; under
-  // exactOptionalPropertyTypes that is not assignable to WorkoutEntry's exact
-  // optional `note?: string`. The validated shape is structurally identical, so
-  // narrow it back with a cast (not `any`).
   return r.success
     ? Effect.succeed(r.data as LoggedEntry)
     : Effect.fail(new DatabaseError({ op: "ledgerEntries.parse", cause: r.error }));

@@ -2,12 +2,6 @@ import { describe, it, expect } from "vitest";
 import { renderShareCard, type ShareCardData } from "../domain/render.js";
 import { buildShareCardData, formatCardDate } from "../domain/card-data.js";
 
-/**
- * Docker-free unit test for the share-card render pipeline (satori + resvg).
- * Asserts a real, non-empty PNG comes out — the 8-byte PNG signature
- * `89 50 4E 47 0D 0A 1A 0A` — so the marketing card is a genuine raster image,
- * not an SVG string or an empty buffer.
- */
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const sample: ShareCardData = {

@@ -25,10 +25,6 @@ export interface PassesServiceApi {
     readonly tier: Tier;
     readonly pack: PassPack;
   }) => Effect.Effect<CreatedOrder, ExternalServiceError | DatabaseError>;
-  /**
-   * Idempotently activate a pass from a paid order intent (called by the webhook
-   * reconciler). Rolls unused days over from a still-valid previous pass.
-   */
   readonly activateFromOrder: (
     intent: OrderIntent,
   ) => Effect.Effect<Pass, DatabaseError>;
@@ -65,7 +61,6 @@ export const PassesServiceLive = Layer.effect(
 
       activateFromOrder: (intent) =>
         Effect.gen(function* () {
-          // Idempotency: if a pass already exists for this order, return it.
           const existing = yield* passes.findByOrderId(intent.orderId);
           if (existing) return existing;
 
@@ -95,7 +90,6 @@ export const PassesServiceLive = Layer.effect(
             createdAt: now.toISOString(),
             updatedAt: now.toISOString(),
           };
-          // Expire the prior pass so its days don't double-count.
           if (prior) {
             yield* passes.update(prior.id, (p) => ({
               ...p,

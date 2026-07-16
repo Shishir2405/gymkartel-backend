@@ -5,13 +5,6 @@ import { DatabaseError } from "../../../shared/errors/errors.js";
 import { istDayNumber } from "../../streaks-ranks/domain/ist.js";
 import { CheckInRepo } from "../application/ports.js";
 
-/**
- * Mongo-backed check-in repository. The `checkIns` collection is the heartbeat
- * aggregate — every read/write is Zod-validated against the contract `CheckIn`
- * schema. Reads lean on the two indexes declared in `shared/db/indexes.ts`:
- *   - { userId:1, gymId:1, scannedAt:-1 } for the recent/history path
- *   - { idempotencyKey:1 } unique for offline-scan dedup
- */
 const COLLECTION = "checkIns";
 
 const parseCheckIn = (doc: unknown): Effect.Effect<CheckIn, DatabaseError> => {
@@ -33,8 +26,6 @@ export const CheckInRepoMongo: Layer.Layer<CheckInRepo, never, Mongo> = Layer.ef
         ).pipe(
           Effect.flatMap((doc) => (doc ? parseCheckIn(doc) : Effect.succeed(null))),
         ),
-      // IST day bucketing is timezone maths the driver can't express, so we
-      // resolve the day per-document in app — identical to the memory adapter.
       existsForUserOnDay: (userId: UserId, dayNumber: number) =>
         mongoOp("checkIns.existsForUserOnDay", () =>
           col.find({ userId }).toArray(),

@@ -36,7 +36,6 @@ export class IncidentRepo extends Context.Tag("features/safety/IncidentRepo")<
   IncidentRepoApi
 >() {}
 
-/** Enqueues an incident onto the escalation queue (RabbitMQ in production). */
 export interface IncidentEscalatorApi {
   readonly escalate: (r: IncidentReport) => Effect.Effect<void, ExternalServiceError>;
 }
@@ -46,12 +45,6 @@ export class IncidentEscalator extends Context.Tag("features/safety/IncidentEsca
 >() {}
 
 export interface SafetyServiceApi {
-  /**
-   * SOS. For ALERT_TRUSTED_CONTACT we send the contact a message with the live
-   * location (requires a trusted contact to be set). REPORT_INCIDENT files a
-   * report and escalates it via the incident queue. Responses are plain and
-   * non-themed — this is the safety surface, not a growth surface.
-   */
   readonly sos: (input: {
     readonly userId: UserId;
     readonly kind: SosKind;

@@ -3,11 +3,6 @@ import { NotificationInbox } from "../features/notifications/application/inbox.j
 import { runResolver, type GraphQLContext } from "./context.js";
 import { requireViewer } from "./guards.js";
 
-/**
- * In-app notification inbox (the "Intel" feed) + push-token registration.
- * Distinct from the outbound NotificationService (SMS/EMAIL/PUSH) — this is the
- * member-facing list with read-state.
- */
 export const notificationResolvers = {
   Query: {
     notifications: (_p: unknown, _a: unknown, ctx: GraphQLContext) => {

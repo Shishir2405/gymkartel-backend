@@ -6,13 +6,6 @@ import { DatabaseError } from "../../../shared/errors/errors.js";
 import type { OrderIntent, PaymentPurpose } from "../domain/webhook.js";
 import { OrderRepo } from "../application/ports.js";
 
-/**
- * Mongo-backed order-intent repository — the idempotency anchor for the money
- * path, keyed by `orderId` (unique index `uniq_order` on the `orders`
- * collection). The `OrderIntent` shape has no contract schema (it never leaves
- * the payments feature), so it is validated with a local Zod schema at this
- * boundary, exactly like the contract-backed repos.
- */
 const COLLECTION = "orders";
 
 const OrderIntentDoc = z.object({
@@ -64,8 +57,6 @@ export const OrderRepoMongo: Layer.Layer<OrderRepo, never, Mongo> = Layer.effect
           ),
         ),
       findByRef: (purpose: PaymentPurpose, ref: Readonly<Record<string, string>>) => {
-        // Match on purpose + every ref field (dot-notation), newest first — the
-        // service only ever reuses an intent that is still CREATED.
         const filter: Filter<OrderIntent> = { purpose };
         for (const [k, v] of Object.entries(ref)) {
           (filter as Record<string, unknown>)[`ref.${k}`] = v;

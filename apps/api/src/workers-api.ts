@@ -1,9 +1,3 @@
-/**
- * Barrel of the pure, dependency-light building blocks the `@gymkartel/workers`
- * app reuses (RabbitMQ topology + streak/rank/leaderboard domain + message
- * contracts). Exposed via the package `./workers` export so the workers app
- * never reaches into api internals.
- */
 export {
   EXCHANGE,
   DLX,

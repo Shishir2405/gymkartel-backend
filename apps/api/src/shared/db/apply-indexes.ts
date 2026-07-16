@@ -4,10 +4,6 @@ import { ConfigLive, Config } from "../config/config.js";
 import { createPinoLogger } from "../logger/logger.js";
 import { COLLECTION_INDEXES } from "./indexes.js";
 
-/**
- * Startup script: applies every declared index. Idempotent — createIndexes is a
- * no-op when the index already exists. Run with `pnpm --filter @gymkartel/api indexes`.
- */
 const program = Effect.gen(function* () {
   const config = yield* Config;
   const log = createPinoLogger(config);

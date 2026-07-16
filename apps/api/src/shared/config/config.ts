@@ -1,10 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { z } from "zod";
 
-/**
- * Typed application configuration. Parsed once from `process.env` at the
- * composition root via Zod (trust boundary). Tests provide `ConfigTest`.
- */
 export const AppConfigSchema = z.object({
   nodeEnv: z.enum(["development", "test", "production"]).default("development"),
   apiPort: z.coerce.number().int().positive().default(4000),
@@ -13,13 +9,6 @@ export const AppConfigSchema = z.object({
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("info"),
 
-  /**
-   * Selects the infrastructure stack wired at the composition root:
-   *   - "memory" (default): infra-free in-memory adapters. Used by every test
-   *     and by `pnpm dev` so the API boots without Docker.
-   *   - "mongo": the driver-backed stack (MongoDB repos + Redis + RabbitMQ +
-   *     live Razorpay gateway). Requires `docker compose up -d`.
-   */
   persistence: z.enum(["memory", "mongo"]).default("memory"),
 
   jwtAccessSecret: z.string().min(1),
@@ -47,14 +36,8 @@ export const AppConfigSchema = z.object({
   r2AccessKeyId: z.string().default(""),
   r2SecretAccessKey: z.string().default(""),
   r2Bucket: z.string().default("gymkartel-assets"),
-  /** Dedicated bucket for worker-rendered check-in share cards. */
   r2ShareCardBucket: z.string().default("gymkartel-share-cards"),
   r2PublicBaseUrl: z.string().default("https://assets.gymkartel.example"),
-  /**
-   * Optional S3 endpoint override. Empty in production (the R2 adapter derives
-   * the Cloudflare endpoint from the account id); set to the local MinIO URL
-   * (http://localhost:9000) from docker-compose for local object storage.
-   */
   s3Endpoint: z.string().default(""),
   s3ForcePathStyle: z.coerce.boolean().default(false),
 
@@ -70,7 +53,6 @@ export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 export class Config extends Context.Tag("shared/Config")<Config, AppConfig>() {}
 
-/** Parse + validate an env bag into typed config (the Zod trust boundary). */
 export const configFromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
   AppConfigSchema.parse({
     nodeEnv: env.NODE_ENV,
@@ -110,13 +92,11 @@ export const configFromEnv = (env: NodeJS.ProcessEnv): AppConfig =>
     appMinSupportedVersion: env.APP_MIN_SUPPORTED_VERSION,
   });
 
-/** Reads and validates process.env. Fails fast if required secrets are absent. */
 export const ConfigLive = Layer.effect(
   Config,
   Effect.sync(() => configFromEnv(process.env)),
 );
 
-/** Deterministic config for tests. Override fields as needed. */
 export const configTest = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   ...AppConfigSchema.parse({
     jwtAccessSecret: "test-access",

@@ -10,7 +10,6 @@ const refKey = (purpose: string, ref: Readonly<Record<string, string>>): string 
     .map(([k, v]) => `${k}=${v}`)
     .join("&")}`;
 
-/** Deterministic fake gateway: order ids derive from the receipt counter. */
 export const PaymentGatewayMemory: Layer.Layer<PaymentGateway> = Layer.sync(
   PaymentGateway,
   () => {
@@ -25,8 +24,6 @@ export const PaymentGatewayMemory: Layer.Layer<PaymentGateway> = Layer.sync(
             currency: "INR",
           };
         }),
-      // In tests the "signature" is the raw body itself; parsing still runs so
-      // the Zod trust boundary is exercised.
       verifyWebhook: (rawBody, signature) =>
         Effect.gen(function* () {
           if (signature !== "valid") {

@@ -7,9 +7,7 @@ import { topUpCost, type UserId } from "@gymkartel/contracts";
 
 const yoga = buildYoga();
 
-/** Mint a real access token for the seeded demo member (exercises auth too). */
 let demoToken = "";
-/** A COACH-role token (seeded coach `coach_neha`, whose userId is `user_neha`). */
 let coachToken = "";
 
 const query = async (
@@ -115,13 +113,11 @@ describe("GraphQL resolvers (interface, via Yoga fetch)", () => {
     const r = await query(`{ gym(id: "gym_iron") { location { lat lng } } }`);
     expect(r.errors).toBeUndefined();
     const gym = (r.data as { gym: { location: { lat: number; lng: number } } }).gym;
-    // Seed gym_iron: coordinates [77.6229, 12.9352] (GeoJSON lng-first).
     expect(gym.location.lat).toBe(12.9352);
     expect(gym.location.lng).toBe(77.6229);
   });
 
   it("createTopUpOrder returns a RazorpayOrder for the topUpCost delta", async () => {
-    // Demo member is STANDARD; GYM-ELITE-002 is PREMIUM → single source of truth.
     const expected = topUpCost("STANDARD", "PREMIUM");
     const r = await query(
       `mutation { createTopUpOrder(input: { gymCheckInCode: "GYM-ELITE-002", idempotencyKey: "iface-topup-order-key" }) { orderId amountPaise currency } }`,
@@ -138,7 +134,6 @@ describe("GraphQL resolvers (interface, via Yoga fetch)", () => {
     expect(order.orderId).toBeTruthy();
     expect(order.currency).toBe("INR");
 
-    // Idempotent: same idempotencyKey (by gym id) reuses the same order.
     const again = await query(
       `mutation { createTopUpOrder(input: { gymId: "gym_elite", idempotencyKey: "iface-topup-order-key" }) { orderId } }`,
       demoToken,
@@ -174,7 +169,6 @@ describe("GraphQL resolvers (interface, via Yoga fetch)", () => {
         };
       }
     ).createBookingOrder;
-    // Seed coach_neha.pricePerSession = 80000 paise (₹800) — no invented pricing.
     expect(order.amountPaise).toBe(80000);
     expect(order.orderId).toBeTruthy();
     expect(order.currency).toBe("INR");
@@ -219,7 +213,6 @@ describe("GraphQL resolvers (interface, via Yoga fetch)", () => {
         };
       }
     ).leaderboard;
-    // Page is capped at 1 (the top rival); the demo member sticks as self-row.
     expect(lb.page).toHaveLength(1);
     expect(lb.page[0]?.isSelf).toBe(false);
     expect(lb.self?.userId).toBe("user_demo");
@@ -250,7 +243,6 @@ describe("GraphQL resolvers (interface, via Yoga fetch)", () => {
     expect(bench.chip.kind).toBe("STRENGTH");
     expect(bench.chip.weightKg).toBe(60);
     expect(bench.chip.uncertain).toBe(false);
-    // "squat 5x5 100" has no unit → amber uncertain, never a silent guess.
     const squat = rows.find((x) => x.chip.exercise === "squat")!;
     expect(squat.chip.uncertain).toBe(true);
     const run = rows.find((x) => x.chip.kind === "CARDIO")!;

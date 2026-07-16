@@ -10,7 +10,6 @@ export interface CoachesServiceApi {
   readonly profile: (
     id: CoachId,
   ) => Effect.Effect<Coach, CoachNotFound | DatabaseError>;
-  /** Derived take-home preview for a price (never stored). */
   readonly takeHome: (pricePerSession: Paise) => Paise;
 }
 

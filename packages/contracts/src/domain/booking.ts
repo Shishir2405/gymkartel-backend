@@ -24,14 +24,11 @@ export const Booking = z.object({
   memberId: UserId,
   coachId: CoachId,
   gymId: GymId,
-  /** Session start; slot length is fixed per coach config, elided here. */
   scheduledFor: z.string().datetime({ offset: true }),
   price: Paise,
   status: BookingStatus,
   orderId: z.string().min(1),
-  /** Every confirmed booking carries an insurance badge (Flow 5). */
   insured: z.boolean().default(true),
-  /** Chat + location-share unlock only once a booking exists and not expired. */
   chatUnlockedAt: z.string().datetime({ offset: true }).optional(),
 }).merge(Timestamps);
 export type Booking = z.infer<typeof Booking>;

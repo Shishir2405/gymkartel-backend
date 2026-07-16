@@ -18,7 +18,6 @@ import { AlreadyCancelled, BookingNotFound, SlotUnavailable } from "./errors.js"
 import { BookingRepo } from "./booking-repo.js";
 
 export interface BookingsServiceApi {
-  /** Reserve a slot + create the Razorpay order (review & pay step, Flow 5). */
   readonly createBookingOrder: (input: {
     readonly memberId: UserId;
     readonly coachId: CoachId;
@@ -28,7 +27,6 @@ export interface BookingsServiceApi {
     CreatedOrder,
     CoachNotFound | SlotUnavailable | DatabaseError | ExternalServiceError
   >;
-  /** Idempotently confirm a booking from a paid order (webhook reconciler). */
   readonly confirmFromOrder: (
     intent: OrderIntent,
   ) => Effect.Effect<Booking, DatabaseError>;
@@ -39,7 +37,6 @@ export interface BookingsServiceApi {
   readonly forMember: (
     memberId: UserId,
   ) => Effect.Effect<Booking[], DatabaseError>;
-  /** Coach calendar: slots already taken (for availability rendering). */
   readonly coachCalendar: (
     coachId: CoachId,
   ) => Effect.Effect<Booking[], DatabaseError>;
@@ -121,8 +118,6 @@ export const BookingsServiceLive = Layer.effect(
             return yield* Effect.fail(new BookingNotFound({ bookingId }));
           }
           if (CANCELLED.has(booking.status)) {
-            // Idempotent: a second cancel is a no-op success shape → tagged so
-            // the caller can distinguish, but safe to treat as already-done.
             return yield* Effect.fail(new AlreadyCancelled({ bookingId }));
           }
           const now = yield* clock.now;

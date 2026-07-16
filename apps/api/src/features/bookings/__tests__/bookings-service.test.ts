@@ -34,8 +34,6 @@ const coach: Coach = {
   updatedAt: now.toISOString(),
 };
 
-// One shared payments layer (same OrderRepo) provided to BOTH the bookings
-// service and the test's reconcileWebhook call, so the created order is found.
 const clock = ClockFixed(now);
 const payments = PaymentsServiceLive.pipe(
   Layer.provide(Layer.mergeAll(PaymentGatewayMemory, OrderRepoMemory(), clock)),
@@ -66,7 +64,6 @@ describe("BookingsService (slot, pay, confirm, cancel — idempotent)", () => {
           gymId: "g1" as GymId,
           scheduledFor: slot,
         });
-        // Pay + confirm.
         const body = JSON.stringify({
           event: "payment.captured",
           payload: {
@@ -83,9 +80,7 @@ describe("BookingsService (slot, pay, confirm, cancel — idempotent)", () => {
         const outcome = yield* payments.reconcileWebhook(body, "valid");
         if (outcome.reconciliation.kind !== "ACTIVATE") throw new Error("expected activate");
         const booking = yield* svc.confirmFromOrder(outcome.reconciliation.intent);
-        // Re-confirm is idempotent.
         const again = yield* svc.confirmFromOrder(outcome.reconciliation.intent);
-        // Slot now taken → second order for same slot fails.
         const clash = yield* svc
           .createBookingOrder({
             memberId: "u2" as UserId,
@@ -94,7 +89,6 @@ describe("BookingsService (slot, pay, confirm, cancel — idempotent)", () => {
             scheduledFor: slot,
           })
           .pipe(Effect.either);
-        // Cancel is idempotent (second cancel → AlreadyCancelled).
         const cancelled = yield* svc.cancel(booking.id, "MEMBER");
         const cancelAgain = yield* svc.cancel(booking.id, "MEMBER").pipe(Effect.either);
         return { booking, again, clash, cancelled, cancelAgain };

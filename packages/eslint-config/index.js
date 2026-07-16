@@ -2,10 +2,6 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import globals from "globals";
 
-/**
- * Shared flat ESLint config for the Gym Kartel backend.
- * Bans `any` (business rule: any `any` needs a `// TODO(reason)` note + eslint-disable).
- */
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,

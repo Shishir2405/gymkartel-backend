@@ -70,7 +70,6 @@ describe("CoachPortalService (dashboard + earnings preview)", () => {
     expect(dash.todaysSessions).toHaveLength(1);
     expect(dash.pendingRequests).toHaveLength(1);
     expect(dash.sessionsCompleted).toBe(42);
-    // Two confirmed sessions × take-home rate.
     expect(dash.earningsPaise).toBe(Math.round(200000 * COACH_TAKE_RATE));
   });
 

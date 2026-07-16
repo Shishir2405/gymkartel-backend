@@ -7,7 +7,6 @@ import type { DatabaseError } from "../../../shared/errors/errors.js";
 import { BookingRepo } from "../../bookings/application/booking-repo.js";
 import { maskPii } from "../domain/mask.js";
 
-/** Chat is locked until a booking exists (and its session hasn't expired). */
 export class ChatLocked extends Data.TaggedError("ChatLocked")<{
   readonly bookingId: string;
 }> {}
@@ -38,11 +37,6 @@ export class ChatRepo extends Context.Tag("features/chat/ChatRepo")<
 >() {}
 
 export interface ChatServiceApi {
-  /**
-   * Send a message. Chat unlocks ONLY after a booking exists (chatUnlockedAt).
-   * PII (phone/UPI/links) is masked in BOTH directions — a hard product rule,
-   * so a coach and member can never move off-platform.
-   */
   readonly send: (
     bookingId: BookingId,
     from: UserId,
@@ -51,7 +45,6 @@ export interface ChatServiceApi {
   readonly history: (
     bookingId: BookingId,
   ) => Effect.Effect<ChatMessage[], DatabaseError>;
-  /** Location-share pin — enabled only post-booking, expires at session end. */
   readonly shareLocation: (
     bookingId: BookingId,
     from: UserId,
@@ -103,7 +96,6 @@ export const ChatServiceLive = Layer.effect(
         Effect.gen(function* () {
           const now = yield* clock.now;
           const booking = yield* requireUnlocked(bookingId, now);
-          // Pin auto-expires at the session end (start + 90 min default).
           const sessionEnd = new Date(
             new Date(booking.scheduledFor).getTime() + 90 * 60 * 1000,
           );

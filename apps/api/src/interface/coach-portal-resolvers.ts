@@ -16,11 +16,6 @@ interface CoachClientRow {
 const isConfirmed = (b: Booking): boolean =>
   b.status === "CONFIRMED" || b.status === "COMPLETED";
 
-/**
- * Build the coach's client roster from their confirmed/completed bookings:
- * one row per distinct member with a session count and profile snippet. The
- * service exposes the raw member ids; the display fields come from UserRepo.
- */
 const buildClients = (coachId: CoachId) =>
   Effect.gen(function* () {
     const bookingRepo = yield* BookingRepo;
@@ -44,11 +39,6 @@ const buildClients = (coachId: CoachId) =>
     return rows.sort((a, b) => b.sessions - a.sessions);
   });
 
-/**
- * Coach-portal resolvers (role = COACH). `requireCoach` gates every field, and
- * `coachForViewer` maps the signed-in user to their Coach document so the
- * portal only ever surfaces the caller's own data.
- */
 export const coachPortalResolvers = {
   Query: {
     coachDashboard: (_p: unknown, _a: unknown, ctx: GraphQLContext) => {

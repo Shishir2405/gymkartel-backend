@@ -3,12 +3,6 @@ import { MongoClient, type Db, type Collection, type Document } from "mongodb";
 import { Config } from "../config/config.js";
 import { DatabaseError } from "../errors/errors.js";
 
-/**
- * MongoDB wrapped as an Effect service (official driver, NOT Mongoose). The
- * client is opened in a scoped layer so it is closed on runtime teardown.
- * Repositories validate every document against the contract Zod schema at their
- * own boundary — this layer only owns the connection.
- */
 export interface MongoApi {
   readonly db: Db;
   readonly collection: <T extends Document = Document>(name: string) => Collection<T>;
@@ -36,7 +30,6 @@ export const MongoLive = Layer.scoped(
   }),
 );
 
-/** Run a Mongo promise-returning op, tagging failures as DatabaseError. */
 export const mongoOp = <A>(
   op: string,
   thunk: () => Promise<A>,

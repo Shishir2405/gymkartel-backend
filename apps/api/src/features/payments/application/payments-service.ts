@@ -16,7 +16,6 @@ export interface WebhookOutcome {
 }
 
 export interface PaymentsServiceApi {
-  /** Create (or reuse) a Razorpay order intent for a purpose + reference. */
   readonly createOrder: (input: {
     readonly purpose: PaymentPurpose;
     readonly userId: string;
@@ -24,7 +23,6 @@ export interface PaymentsServiceApi {
     readonly ref: Readonly<Record<string, string>>;
   }) => Effect.Effect<CreatedOrder, ExternalServiceError | DatabaseError>;
 
-  /** Verify + reconcile a webhook. Idempotent: a replay yields a NOOP. */
   readonly reconcileWebhook: (
     rawBody: string,
     signature: string,
@@ -51,8 +49,6 @@ export const PaymentsServiceLive = Layer.effect(
     return {
       createOrder: (input) =>
         Effect.gen(function* () {
-          // Reuse an existing unpaid intent for the same ref so retries don't
-          // spawn duplicate Razorpay orders (offline-safe money path).
           const existing = yield* orders.findByRef(input.purpose, input.ref);
           if (existing && existing.status === "CREATED") {
             return {

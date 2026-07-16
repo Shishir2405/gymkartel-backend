@@ -3,12 +3,6 @@ import Redis from "ioredis";
 import { Config } from "../config/config.js";
 import { ExternalServiceError } from "../errors/errors.js";
 
-/**
- * Redis (ioredis) as a scoped Effect service. Used for session/refresh token
- * families, OTP + offline-checkin idempotency keys, leaderboard hot cache and
- * rate-limiter buckets. `lazyConnect` keeps construction side-effect-free until
- * the first command, so building the runtime never dials a socket.
- */
 export class RedisClient extends Context.Tag("shared/RedisClient")<
   RedisClient,
   Redis

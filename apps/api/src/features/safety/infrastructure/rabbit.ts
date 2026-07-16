@@ -3,11 +3,6 @@ import { Rabbit, ROUTING } from "../../../shared/mq/rabbit.js";
 import { ExternalServiceError } from "../../../shared/errors/errors.js";
 import { IncidentEscalator } from "../application/safety-service.js";
 
-/**
- * RabbitMQ-backed incident escalation. Publishes reported incidents onto the
- * escalation topic for the on-call worker. The broker error is remapped to the
- * port's `ExternalServiceError` so the safety service surface is unchanged.
- */
 export const IncidentEscalatorRabbit: Layer.Layer<IncidentEscalator, never, Rabbit> =
   Layer.effect(
     IncidentEscalator,

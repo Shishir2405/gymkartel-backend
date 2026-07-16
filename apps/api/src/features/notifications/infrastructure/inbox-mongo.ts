@@ -8,12 +8,6 @@ import {
   type InboxNotification,
 } from "../application/inbox.js";
 
-/**
- * Mongo-backed in-app notification inbox (`notifications` collection) plus a
- * `pushTokens` collection for Expo token registration. Documents are
- * feature-internal, validated with a local Zod schema. The feed read uses the
- * `user_createdAt` index in `shared/db/indexes.ts`.
- */
 const COLLECTION = "notifications";
 const TOKENS_COLLECTION = "pushTokens";
 

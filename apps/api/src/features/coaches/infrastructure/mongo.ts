@@ -5,15 +5,8 @@ import { Mongo, mongoOp } from "../../../shared/db/mongo.js";
 import { DatabaseError } from "../../../shared/errors/errors.js";
 import { CoachRepo, type CoachFilter } from "../application/coach-repo.js";
 
-/**
- * Mongo-backed coach repository. Reads/writes are Zod-validated against the
- * contract `Coach` schema. The `verified`/price filters push down to Mongo (the
- * `verified_rating` index); specialty substring + the femaleOnly convention are
- * applied in app to mirror the in-memory adapter exactly.
- */
 const COLLECTION = "coaches";
 
-/** femaleOnly filters on a specialty marker — same convention as in-memory. */
 const matchesFemaleOnly = (coach: Coach): boolean =>
   coach.specialties.some((s) => /female|women/i.test(s));
 
@@ -35,8 +28,6 @@ export const CoachRepoMongo: Layer.Layer<CoachRepo, never, Mongo> = Layer.effect
           Effect.flatMap((doc) => (doc ? parseCoach(doc) : Effect.succeed(null))),
         ),
       list: (filter: CoachFilter) => {
-        // Push `verified` down to the index; specialty (substring), femaleOnly
-        // (convention) and price are applied in app to mirror in-memory exactly.
         const q: Filter<Coach> = {};
         if (filter.verifiedOnly) q.verified = true;
         return mongoOp("coaches.list", () => col.find(q).toArray()).pipe(

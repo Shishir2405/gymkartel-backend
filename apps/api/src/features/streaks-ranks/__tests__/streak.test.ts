@@ -16,26 +16,23 @@ import {
 } from "../domain/streak.js";
 import { rankForWeeks, RANKS } from "../domain/rank.js";
 
-/** Helper: an IST-local date at a given hour. */
 const ist = (y: number, m: number, d: number, hour = 12): Date =>
-  new Date(Date.UTC(y, m - 1, d, hour - 5, 0 - 30)); // subtract +05:30 to land in IST
+  new Date(Date.UTC(y, m - 1, d, hour - 5, 0 - 30));
 
 describe("IST day boundaries", () => {
   it("assigns the same day-number across an IST calendar day", () => {
-    const early = ist(2026, 3, 10, 0); // 00:00 IST
-    const late = ist(2026, 3, 10, 23); // 23:00 IST
+    const early = ist(2026, 3, 10, 0);
+    const late = ist(2026, 3, 10, 23);
     expect(istDayNumber(early)).toBe(istDayNumber(late));
   });
 
   it("crosses to next day-number at IST midnight, not UTC midnight", () => {
-    // 23:45 IST on the 10th and 00:15 IST on the 11th are different days
     const before = ist(2026, 3, 10, 23) ;
     const after = ist(2026, 3, 11, 1);
     expect(istDayNumber(after)).toBe(istDayNumber(before) + 1);
   });
 
   it("18:30 UTC is already the next IST day", () => {
-    // 18:30 UTC == 00:00 IST next day
     const at = new Date(Date.UTC(2026, 2, 10, 18, 30));
     const justBefore = new Date(Date.UTC(2026, 2, 10, 18, 29));
     expect(istDayNumber(at)).toBe(istDayNumber(justBefore) + 1);
@@ -64,7 +61,6 @@ describe("streakWeeks / alive", () => {
 
   it("counts consecutive qualifying weeks", () => {
     const days: number[] = [];
-    // 4 weeks, 3 days each
     for (let w = 0; w < 4; w += 1) {
       const base = today - w * 7;
       days.push(base, base - 2, base - 4);
@@ -74,16 +70,14 @@ describe("streakWeeks / alive", () => {
 
   it("does not break the streak if the in-progress week hasn't hit 3 yet", () => {
     const days: number[] = [];
-    // last completed week qualifies, current week only has 1 day so far
-    days.push(today); // 1 day this week
+    days.push(today);
     const prev = today - 7;
-    days.push(prev, prev - 2, prev - 4); // qualifying previous week
+    days.push(prev, prev - 2, prev - 4);
     expect(streakWeeks(days, today)).toBe(1);
   });
 
   it("breaks the streak on a fully missed completed week", () => {
     const days: number[] = [];
-    // week 0 qualifies, week 1 empty, week 2 qualifies
     days.push(today, today - 2, today - 4);
     const w2 = today - 14;
     days.push(w2, w2 - 2, w2 - 4);
@@ -113,8 +107,6 @@ describe("windowDaysLeft", () => {
     expect(windowDaysLeft([today, today - 1], today)).toBe(0);
   });
   it("counts until the 3rd-most-recent day exits the 7-day window", () => {
-    // trained today, yesterday, and 6 days ago; 3rd most recent = today-6,
-    // exits at (today-6)+7 = today+1 → 1 day left.
     const days = [today, today - 1, today - 6];
     expect(windowDaysLeft(days, today)).toBe(1);
   });
@@ -143,7 +135,6 @@ describe("property: streak logic is stable and bounded", () => {
         (offsets) => {
           const today = 20000;
           const days = toTrainingDays(offsets.map((o) => new Date((today + o) * 86400000)));
-          // reduce to day-numbers directly for determinism
           const dayNums = [...new Set(offsets.map((o) => today + o))].sort((a, b) => a - b);
           const weeks = streakWeeks(dayNums, today);
           expect(weeks).toBeLessThanOrEqual(dayNums.length);

@@ -2,17 +2,12 @@ import { Context, Effect } from "effect";
 import type { PhoneNumber } from "@gymkartel/contracts";
 import type { ExternalServiceError, RateLimitedError } from "../../../shared/errors/errors.js";
 
-/** A stored OTP challenge. */
 export interface OtpRecord {
   readonly codeHash: string;
   readonly expiresAt: number;
   readonly attempts: number;
 }
 
-/**
- * OTP challenge store (Redis in production). Holds the hashed code with a TTL
- * and an attempt counter so brute force is bounded.
- */
 export interface OtpStoreApi {
   readonly put: (
     phone: PhoneNumber,
@@ -33,10 +28,6 @@ export class OtpStore extends Context.Tag("features/auth/OtpStore")<
   OtpStoreApi
 >() {}
 
-/**
- * Rate limiter port (rate-limiter-flexible in production). Consumes a point for
- * the key; fails with RateLimitedError when the bucket is empty.
- */
 export interface RateLimiterApi {
   readonly consume: (
     key: string,
@@ -49,10 +40,6 @@ export class RateLimiter extends Context.Tag("features/auth/RateLimiter")<
   RateLimiterApi
 >() {}
 
-/**
- * Refresh-token family store — tracks the currently-valid family id per user so
- * a rotated (or reused) refresh token can be detected and revoked.
- */
 export interface SessionStoreApi {
   readonly setFamily: (
     userId: string,

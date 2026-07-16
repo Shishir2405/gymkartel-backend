@@ -16,11 +16,6 @@ export interface GraphQLContext {
   readonly requestId: string;
 }
 
-/**
- * Resolve the viewer from a Bearer access token. Invalid/absent tokens yield a
- * null viewer (anonymous) rather than an error — field-level auth is enforced by
- * `requireViewer` in the resolvers that need it.
- */
 export const resolveViewer = async (
   authHeader: string | undefined,
 ): Promise<Viewer | null> => {
@@ -36,11 +31,6 @@ export const resolveViewer = async (
   return result;
 };
 
-/**
- * Run an Effect on the app runtime, surfacing typed failures as GraphQL errors
- * with extension codes. This is the ONLY place domain errors cross into the HTTP
- * boundary — the edge adapter pattern the brief requires.
- */
 export const runResolver = async <A, E>(
   runtime: AppRuntime,
   effect: Effect.Effect<A, E, AppServices>,
@@ -52,6 +42,5 @@ export const runResolver = async <A, E>(
   return either.right;
 };
 
-/** Load the full viewer User document (for the `viewer` query). */
 export const loadViewerUser = (viewerId: UserId) =>
   UserRepo.pipe(Effect.flatMap((repo) => repo.findById(viewerId)));

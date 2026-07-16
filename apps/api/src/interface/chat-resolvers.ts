@@ -8,12 +8,6 @@ import { runResolver, type GraphQLContext } from "./context.js";
 import { requireViewer } from "./guards.js";
 import { pubSub, chatTopic } from "./pubsub.js";
 
-/**
- * Chat resolvers. PII masking already happens inside ChatService.send (both
- * directions) — resolvers only ever surface the masked `text`, never the raw
- * input. Threads exist only post-booking (chatUnlockedAt), so the inbox is
- * derived from the viewer's unlocked bookings.
- */
 export const chatResolvers = {
   Query: {
     chatInbox: (_p: unknown, _a: unknown, ctx: GraphQLContext) => {
@@ -75,7 +69,6 @@ export const chatResolvers = {
           ),
         ),
       );
-      // Fan the (already-masked) message out to live thread subscribers.
       pubSub.publish(chatTopic(args.bookingId), message);
       return message;
     },

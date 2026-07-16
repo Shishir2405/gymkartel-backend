@@ -4,12 +4,6 @@ import { Mongo, mongoOp } from "../../../shared/db/mongo.js";
 import { DatabaseError } from "../../../shared/errors/errors.js";
 import { UserRepo } from "../application/user-repo.js";
 
-/**
- * Mongo-backed user repository (official driver, not Mongoose). EVERY document
- * is validated against the contract `User` Zod schema at this boundary on both
- * read and write, so a malformed document can never leak into the domain. This
- * is the canonical pattern all six entity repositories follow.
- */
 const COLLECTION = "users";
 
 const parseUser = (doc: unknown): Effect.Effect<User, DatabaseError> => {

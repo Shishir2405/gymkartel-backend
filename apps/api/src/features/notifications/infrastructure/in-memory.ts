@@ -4,10 +4,6 @@ import {
   type NotificationMessage,
 } from "../application/port.js";
 
-/**
- * In-memory notification sink used by tests. Captures every message so a test
- * can assert an OTP SMS / booking email was enqueued without a real provider.
- */
 export class NotificationRecorder {
   readonly sent: NotificationMessage[] = [];
 }

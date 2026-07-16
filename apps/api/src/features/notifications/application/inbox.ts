@@ -2,13 +2,6 @@ import { Context, Effect, Layer } from "effect";
 import type { UserId } from "@gymkartel/contracts";
 import type { DatabaseError } from "../../../shared/errors/errors.js";
 
-/**
- * In-app notification inbox (the "Intel" feed). Distinct from the outbound
- * NotificationService port (SMS/EMAIL/PUSH via Brevo/Expo): this is the
- * member-facing list the app renders, with read-state and push-token
- * registration. The production adapter is Mongo-backed; the memory adapter
- * below is the reference used by the infra-free runtime and tests.
- */
 export type NotificationKind = "GENERAL" | "BOOKING" | "STREAK" | "SAFETY" | "PASS";
 
 export interface InboxNotification {

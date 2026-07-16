@@ -3,17 +3,9 @@ import { fileURLToPath } from "node:url";
 import satori from "satori";
 import { Resvg } from "@resvg/resvg-js";
 
-/**
- * Server-side render of the check-in "success card" — the app's marketing
- * engine. A pure-JS pipeline (NO headless browser): `satori` turns a small VDOM
- * tree + the design tokens into an SVG, then `@resvg/resvg-js` rasterises that
- * SVG to a 1080×1920 PNG. Deterministic and dependency-light, so it runs in the
- * default Docker-free test suite.
- */
 export const CARD_WIDTH = 1080;
 export const CARD_HEIGHT = 1920;
 
-/** Soft-Dark Luxury palette (matches the app design tokens). */
 export const TOKENS = {
   bg: "#141416",
   surface: "#1C1C1F",
@@ -23,24 +15,14 @@ export const TOKENS = {
   hairline: "rgba(245, 240, 235, 0.10)",
 } as const;
 
-/** The marketing data a rendered card needs — resolved from the check-in. */
 export interface ShareCardData {
   readonly gymName: string;
-  /** DAY count — the hero numeral (e.g. total training days / pass day). */
   readonly dayCount: number;
-  /** Consecutive streak-weeks. */
   readonly streakWeeks: number;
-  /** Public rank label, e.g. "Committed". */
   readonly rankLabel: string;
-  /** Pre-formatted date string, e.g. "15 JUL 2026". */
   readonly date: string;
 }
 
-/**
- * Minimal satori VDOM node. Satori's own element type is React's `ReactNode`
- * (resolved to `any` here since React types are absent), so we describe just
- * the shape we build to keep our own code fully typed.
- */
 interface Node {
   readonly type: string;
   readonly props: {
@@ -62,15 +44,6 @@ interface LoadedFont {
   readonly style: "normal";
 }
 
-/**
- * Vendored fonts (fetched into `assets/fonts` at build-prep time). Barlow
- * Condensed drives the big numerals; Inter carries the body copy.
- *
- * NOTE(fonts): fonts are resolved relative to the source tree via
- * `import.meta.url`, which is correct when running from source (tests, tsx).
- * If a future dist build ships without the assets folder, copy `assets/` into
- * `dist/` in the build step. TODO(fonts): wire that copy into `pnpm build`.
- */
 let fontCache: readonly LoadedFont[] | null = null;
 
 const loadFonts = (): readonly LoadedFont[] => {
@@ -86,7 +59,6 @@ const loadFonts = (): readonly LoadedFont[] => {
   return fontCache;
 };
 
-/** Build the Soft-Dark Luxury card VDOM tree from resolved check-in data. */
 const buildCard = (data: ShareCardData): Node =>
   el(
     "div",
@@ -101,7 +73,6 @@ const buildCard = (data: ShareCardData): Node =>
       color: TOKENS.text,
     },
     [
-      // Surface card fills the frame with an inset luxury panel.
       el(
         "div",
         {
@@ -114,7 +85,6 @@ const buildCard = (data: ShareCardData): Node =>
           padding: "88px 80px",
         },
         [
-          // Header: gym name + accent rank pill.
           el(
             "div",
             { display: "flex", flexDirection: "column" },
@@ -152,7 +122,6 @@ const buildCard = (data: ShareCardData): Node =>
               ),
             ],
           ),
-          // Hero: giant DAY numeral in Barlow Condensed.
           el(
             "div",
             {
@@ -189,7 +158,6 @@ const buildCard = (data: ShareCardData): Node =>
               ),
             ],
           ),
-          // Footer: streak + date, above the wordmark.
           el(
             "div",
             {
@@ -273,14 +241,8 @@ const buildCard = (data: ShareCardData): Node =>
     ],
   );
 
-/**
- * Render a 1080×1920 share-card PNG from check-in data. Returns the raw PNG
- * bytes (magic `89 50 4E 47`). Async because satori's layout pass is async.
- */
 export const renderShareCard = async (data: ShareCardData): Promise<Buffer> => {
   const fonts = loadFonts();
-  // Satori's element param is React's `ReactNode` (→ `any` without React types);
-  // our `Node` shape is the exact VDOM satori consumes.
   const svg = await satori(buildCard(data) as unknown as Parameters<typeof satori>[0], {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,

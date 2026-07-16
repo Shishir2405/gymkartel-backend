@@ -43,7 +43,6 @@ describe("pass purchase money path (idempotent, single source of truth)", () => 
       });
       expect(order.amountPaise).toBe(passPrice("STANDARD", "FIFTEEN_DAY"));
 
-      // Simulate Razorpay captured webhook for that order.
       const body = JSON.stringify({
         event: "payment.captured",
         payload: {
@@ -61,7 +60,6 @@ describe("pass purchase money path (idempotent, single source of truth)", () => 
       expect(outcome1.reconciliation.kind).toBe("ACTIVATE");
 
       const pass1 = yield* passes.activateFromOrder(outcome1.intent);
-      // Replay the same webhook + activation → must not create a second pass.
       const outcome2 = yield* payments.reconcileWebhook(body, "valid");
       expect(outcome2.reconciliation.kind).toBe("NOOP");
       const pass2 = yield* passes.activateFromOrder(outcome1.intent);
@@ -91,7 +89,7 @@ describe("pass purchase money path (idempotent, single source of truth)", () => 
             entity: {
               id: "pay_x",
               order_id: order.orderId,
-              amount: order.amountPaise - 100, // tampered
+              amount: order.amountPaise - 100,
               status: "captured",
             },
           },

@@ -5,18 +5,12 @@ import { RANKS } from "../features/streaks-ranks/domain/rank.js";
 import { runResolver, type GraphQLContext } from "./context.js";
 import { requireViewer } from "./guards.js";
 
-/** The public rank ladder — surfaced verbatim so a member sees the next target. */
 const publicThresholds = RANKS.map((r) => ({
   key: r.key,
   label: r.label,
   minWeeks: r.minWeeks,
 }));
 
-/**
- * Streaks & ranks. Reuses the SAME StreaksService the `Viewer.streak` resolver
- * uses (no duplicate streak maths) and exposes the public rank thresholds. The
- * calendar's `days` come straight from the check-in instants port.
- */
 export const streakResolvers = {
   Query: {
     rankCard: (_p: unknown, _a: unknown, ctx: GraphQLContext) => {

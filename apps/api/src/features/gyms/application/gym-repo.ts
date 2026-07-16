@@ -5,7 +5,6 @@ import type { DatabaseError } from "../../../shared/errors/errors.js";
 export interface GymQuery {
   readonly zone?: Zone;
   readonly tier?: Tier;
-  /** Include gyms outside the viewer's tier (the "peek other tiers" toggle). */
   readonly includeOtherTiers?: boolean;
 }
 

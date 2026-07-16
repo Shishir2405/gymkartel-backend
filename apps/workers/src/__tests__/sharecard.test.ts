@@ -3,11 +3,6 @@ import { Effect } from "effect";
 import { buildShareCardData } from "@gymkartel/api/workers";
 import { shareCardRender, type ShareCardDeps } from "../handlers.js";
 
-/**
- * Consumer-level test for the share-card worker: it renders a real PNG through
- * the satori pipeline and hands it to the injected uploader. The uploader is a
- * capture stub (no R2 / no Docker), so this runs in the default suite.
- */
 const captured: { checkInId?: string; bytes?: Uint8Array } = {};
 
 const deps: ShareCardDeps = {

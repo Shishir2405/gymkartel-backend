@@ -9,14 +9,6 @@ export interface WebhookResult {
   readonly body: Readonly<Record<string, unknown>>;
 }
 
-/**
- * Razorpay webhook handler. Verifies the signature, reconciles the order intent
- * idempotently, then dispatches the ACTIVATE outcome to the owning feature
- * (pass activation / booking confirmation). Top-up captures need no dispatch —
- * the next check-in sync reads the paid order. ALWAYS returns 200 for a
- * verified+known order so Razorpay stops retrying (idempotency guarantees
- * replays are safe).
- */
 export const handleRazorpayWebhook = async (
   runtime: AppRuntime,
   rawBody: string,
@@ -50,8 +42,6 @@ export const handleRazorpayWebhook = async (
   const either = await runtime.runPromise(Effect.either(program));
   if (either._tag === "Left") {
     const err = either.left;
-    // Signature failures → 400 (do not ack); unknown order → 404. Everything
-    // else is retryable → 500 so Razorpay resends.
     const status =
       err._tag === "PaymentVerificationError"
         ? 400

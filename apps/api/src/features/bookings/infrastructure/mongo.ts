@@ -4,11 +4,6 @@ import { Mongo, mongoOp } from "../../../shared/db/mongo.js";
 import { DatabaseError } from "../../../shared/errors/errors.js";
 import { BookingRepo } from "../application/booking-repo.js";
 
-/**
- * Mongo-backed booking repository. Reads/writes are Zod-validated against the
- * contract `Booking` schema. Member/coach queries use the `member_schedule` /
- * `coach_slot` indexes; `orderId` is unique for payment reconciliation.
- */
 const COLLECTION = "bookings";
 
 const parseBooking = (doc: unknown): Effect.Effect<Booking, DatabaseError> => {

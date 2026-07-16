@@ -5,12 +5,6 @@ import { Mongo, mongoOp } from "../../../shared/db/mongo.js";
 import { DatabaseError } from "../../../shared/errors/errors.js";
 import { ChatRepo, type ChatMessage } from "../application/chat-service.js";
 
-/**
- * Mongo-backed chat message log (`chatMessages` collection). The `ChatMessage`
- * shape is feature-internal (no contract schema), so it is validated with a
- * local Zod schema at this boundary. History reads use the
- * `booking_sentAt` index declared in `shared/db/indexes.ts`.
- */
 const COLLECTION = "chatMessages";
 
 const ChatMessageDoc = z.object({

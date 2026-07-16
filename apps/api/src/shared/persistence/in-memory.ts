@@ -1,12 +1,6 @@
 import { Effect } from "effect";
 import { DatabaseError } from "../errors/errors.js";
 
-/**
- * Tiny in-memory collection used to back port implementations for tests and the
- * infra-free local runtime. Mirrors the subset of repo operations features
- * need. Production repositories use the Mongo adapter instead; both satisfy the
- * same Effect port so services never know which is wired.
- */
 export class InMemoryCollection<T> {
   private readonly rows = new Map<string, T>();
 

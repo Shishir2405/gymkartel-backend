@@ -17,7 +17,7 @@ describe("leaderboard ranking (attendance only, never money)", () => {
 
   it("compareEntries is a total order (transitive-ish sanity)", () => {
     expect(compareEntries(e("a", 5, 1), e("b", 4, 100))).toBeLessThan(0);
-    expect(compareEntries(e("a", 4, 100), e("b", 4, 100))).toBeLessThan(0); // id tiebreak
+    expect(compareEntries(e("a", 4, 100), e("b", 4, 100))).toBeLessThan(0);
   });
 
   it("keeps a sticky self-row when the viewer is off-page", () => {

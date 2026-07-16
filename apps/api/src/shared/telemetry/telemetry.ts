@@ -4,11 +4,6 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import type { AppConfig } from "../config/config.js";
 
-/**
- * Observability bootstrap hooks. These run once at process start (before the
- * Effect runtime is built) — intentionally imperative, not an Effect layer.
- * No-ops cleanly when DSN/endpoint are unset so local dev needs no collector.
- */
 let sdk: NodeSDK | null = null;
 
 export const initTelemetry = (config: AppConfig): void => {

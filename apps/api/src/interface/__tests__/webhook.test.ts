@@ -2,12 +2,6 @@ import { describe, it, expect } from "vitest";
 import { handleRazorpayWebhook } from "../webhook.js";
 import { appRuntime } from "../../runtime/runtime.js";
 
-/**
- * HTTP-level contract for the Razorpay webhook. The signature is verified in the
- * payment gateway (HMAC over the raw body in production; the in-memory gateway
- * used here accepts the literal "valid"). Client-reported status is never
- * trusted — reconciliation is keyed off the persisted order intent.
- */
 const capturedBody = (orderId: string): string =>
   JSON.stringify({
     event: "payment.captured",

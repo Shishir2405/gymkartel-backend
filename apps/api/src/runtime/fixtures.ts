@@ -18,12 +18,6 @@ import type { StoredLeaderboardRow } from "../features/leaderboards/application/
 import type { SeedNotification } from "../features/notifications/application/inbox.js";
 import { istSeasonKey } from "../features/streaks-ranks/domain/ist.js";
 
-/**
- * Seed data for the infra-free local runtime (no Mongo/Redis/Rabbit). Lets the
- * GraphQL server boot and every query return something without a database. The
- * production composition root swaps the in-memory layers for the driver-backed
- * adapters and drops these fixtures.
- */
 const iso = "2026-01-01T00:00:00.000Z";
 const zone = "koramangala" as Zone;
 const state = "KA" as IndianState;
@@ -102,11 +96,6 @@ export const seedPasses: Pass[] = [
   },
 ];
 
-/**
- * Leaderboard rows for the CURRENT IST season so `leaderboard(ZONE)` returns a
- * populated page (with the demo member on it) out of the box. Ranking is
- * attendance-only; these are hand-picked to show a plausible ordering.
- */
 const season = istSeasonKey(new Date());
 
 export const seedLeaderboardRows: StoredLeaderboardRow[] = [
@@ -165,7 +154,6 @@ export const seedNotifications: SeedNotification[] = [
   },
 ];
 
-/** Seeded feature flags for the infra-free runtime. */
 export const seedFeatureFlags: Readonly<Record<string, boolean>> = {
   leaderboards: true,
   coach_chat: true,
@@ -217,10 +205,6 @@ export const seedCoaches: Coach[] = [
   },
 ];
 
-/**
- * One confirmed booking for the demo member with chat already unlocked, so the
- * infra-free runtime can exercise the post-booking chat + inbox surfaces.
- */
 export const seedBookings: Booking[] = [
   {
     schemaVersion: 1,

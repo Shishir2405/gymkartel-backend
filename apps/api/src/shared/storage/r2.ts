@@ -4,12 +4,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Config } from "../config/config.js";
 import { ExternalServiceError } from "../errors/errors.js";
 
-/**
- * S3-compatible (Cloudflare R2) object-storage adapter for share-card renders,
- * cert uploads and transformation photos. Only ever hands out SIGNED URLs — the
- * bucket is private; the app uploads via a presigned PUT and reads via a
- * presigned GET, both time-limited.
- */
 export interface ObjectStorageApi {
   readonly signedUpload: (
     key: string,
@@ -20,11 +14,6 @@ export interface ObjectStorageApi {
     key: string,
     expiresInSeconds?: number,
   ) => Effect.Effect<string, ExternalServiceError>;
-  /**
-   * Server-side upload of bytes we already hold (e.g. a worker-rendered share
-   * card). Overwrites the same key, so callers keying by a stable id (check-in
-   * id) get idempotent re-renders rather than duplicates.
-   */
   readonly putObject: (
     key: string,
     body: Uint8Array,
@@ -41,8 +30,6 @@ export const ObjectStorageR2: Layer.Layer<ObjectStorage, never, Config> = Layer.
   ObjectStorage,
   Effect.gen(function* () {
     const config = yield* Config;
-    // Local MinIO (docker-compose) sets S3_ENDPOINT + path-style; production
-    // leaves them empty and the Cloudflare R2 endpoint is derived instead.
     const endpoint =
       config.s3Endpoint !== ""
         ? config.s3Endpoint

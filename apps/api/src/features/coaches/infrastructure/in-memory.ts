@@ -3,11 +3,6 @@ import type { Coach } from "@gymkartel/contracts";
 import { InMemoryCollection } from "../../../shared/persistence/in-memory.js";
 import { CoachRepo } from "../application/coach-repo.js";
 
-/**
- * The Coach contract has no gender field, so `femaleOnly` filters on a
- * specialty marker ("women"/"female") — an explicit product convention, noted
- * here rather than guessed silently.
- */
 const matchesFemaleOnly = (coach: Coach): boolean =>
   coach.specialties.some((s) => /female|women/i.test(s));
 

@@ -10,7 +10,6 @@ export interface LoggedEntry {
   readonly userId: UserId;
   readonly entry: WorkoutEntry;
   readonly isPR: boolean;
-  /** Set when a coach logged this session on the member's behalf. */
   readonly coachId: CoachId | null;
   readonly loggedAt: string;
 }
@@ -18,7 +17,6 @@ export interface LoggedEntry {
 export interface LedgerRepoApi {
   readonly append: (entry: LoggedEntry) => Effect.Effect<LoggedEntry, DatabaseError>;
   readonly forUser: (userId: UserId) => Effect.Effect<LoggedEntry[], DatabaseError>;
-  /** Best strength weight logged for an exercise (for PR detection). */
   readonly bestWeight: (
     userId: UserId,
     exercise: string,
@@ -31,11 +29,6 @@ export class LedgerRepo extends Context.Tag("features/ledger/LedgerRepo")<
 >() {}
 
 export interface LedgerServiceApi {
-  /**
-   * Parse free text into structured entries (amber `?` on uncertain tokens,
-   * never a silent guess) and persist them, flagging personal records.
-   * `coachId` is set when a coach logs the session for the member.
-   */
   readonly log: (
     userId: UserId,
     text: string,

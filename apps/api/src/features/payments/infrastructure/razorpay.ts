@@ -7,12 +7,6 @@ import { PaymentVerificationError } from "../domain/errors.js";
 import { RazorpayWebhook } from "../domain/webhook.js";
 import { PaymentGateway } from "../application/ports.js";
 
-/**
- * Live Razorpay adapter (UPI-first). Order creation goes through the SDK;
- * webhook verification uses the documented HMAC-SHA256 over the RAW body with
- * the webhook secret and a constant-time comparison. Client-reported status is
- * never trusted — only this signature check plus the persisted order intent.
- */
 export const PaymentGatewayLive: Layer.Layer<PaymentGateway, never, Config> =
   Layer.effect(
     PaymentGateway,
@@ -32,7 +26,6 @@ export const PaymentGatewayLive: Layer.Layer<PaymentGateway, never, Config> =
                 currency: "INR",
                 receipt: input.receipt,
                 notes: input.notes,
-                // UPI is the default rail; Razorpay picks it up from checkout.
               });
               return {
                 orderId: order.id,

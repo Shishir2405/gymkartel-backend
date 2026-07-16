@@ -1,9 +1,3 @@
-/**
- * Leaderboard ordering (Flow 7). Ranked by streak first, then total check-ins
- * (attendance ONLY — money never influences rank). Ties break by earliest
- * member id for determinism. Produces a page plus a sticky self-row so the
- * viewer always sees their own position even when off-page.
- */
 
 export interface LeaderboardEntry {
   readonly userId: string;
@@ -30,11 +24,9 @@ export const rankAll = (entries: readonly LeaderboardEntry[]): RankedEntry[] => 
 
 export interface LeaderboardView {
   readonly page: readonly RankedEntry[];
-  /** Present when the viewer is outside the returned page. */
   readonly self: RankedEntry | null;
 }
 
-/** Top-N page plus a sticky self-row if the viewer falls outside it. */
 export const buildView = (
   entries: readonly LeaderboardEntry[],
   selfUserId: string,

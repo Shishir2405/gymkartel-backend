@@ -13,7 +13,6 @@ export interface CoachDashboard {
   readonly pendingRequests: readonly Booking[];
   readonly ratingAverage: number | null;
   readonly sessionsCompleted: number;
-  /** Earnings preview across confirmed bookings (T+2 payout schedule). */
   readonly earningsPaise: Paise;
 }
 
@@ -21,7 +20,6 @@ export interface CoachEarnings {
   readonly grossPaise: Paise;
   readonly takeHomePaise: Paise;
   readonly payoutSchedule: "T+2";
-  /** Simplistic tax summary (TDS placeholder) for the coach's records. */
   readonly estimatedTdsPaise: Paise;
 }
 
@@ -94,7 +92,6 @@ export const CoachPortalServiceLive = Layer.effect(
             grossPaise: gross,
             takeHomePaise: take,
             payoutSchedule: "T+2" as const,
-            // Placeholder 10% TDS estimate on take-home for the coach's summary.
             estimatedTdsPaise: Math.round(take * 0.1) as Paise,
           };
         }),
